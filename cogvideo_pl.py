@@ -129,7 +129,7 @@ class CogVideoXWorkFlow(pl.LightningModule):
         # are most schduler 
         self.scheduler = instantiate_from_config(scheduler_config)
         # add adapter config (Support Lora and HRA ) 
-        self.lora_args = []
+        self.lora_args = [] 
         if adapter_config is not None:
             self.inject_adapter(adapter_config)
     def inject_adapter(self, adapter_config):
@@ -642,7 +642,7 @@ class CogVideoXWorkFlow(pl.LightningModule):
 
             latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents
             latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
-            # print(i,latent_model_input.max(),latent_model_input.min(),has_nan(latent_model_input))
+            print(i,latent_model_input.max(),latent_model_input.min(),has_nan(latent_model_input))
             # broadcast to batch dimension in a way that's compatible with ONNX/Core ML
             timestep = t.expand(latent_model_input.shape[0])
             # print(i,num_inference_steps)
@@ -768,7 +768,6 @@ class CogVideoXWorkFlow(pl.LightningModule):
             0, self.scheduler.config.num_train_timesteps, (batch_size,), device=self.device
         )
         timesteps = timesteps.long()
-
         # Prepare rotary embeds
         image_rotary_emb = (
             # in the first place, we assume this function is the same during inference and train. 

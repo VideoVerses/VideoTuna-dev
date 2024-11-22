@@ -14,7 +14,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import Callback
 from pytorch_lightning.utilities import rank_zero_only
 from pytorch_lightning.utilities import rank_zero_info
-from utils.save_video import log_local, prepare_to_log
+from .save_video import log_local, prepare_to_log
 
 
 class LoraModelCheckpoint(pl.callbacks.ModelCheckpoint):
