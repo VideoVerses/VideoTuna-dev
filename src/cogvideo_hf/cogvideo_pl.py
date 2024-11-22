@@ -423,22 +423,22 @@ class CogVideoXWorkFlow(pl.LightningModule):
         height: int,
         width: int,
         num_frames: int,
-        device: torch.device,
+        vae_scale_factor_spatial: int = 8,
+        patch_size: int = 2,
+        attention_head_dim: int = 64,
+        device: Optional[torch.device] = None,
         base_height: int = 480,
         base_width: int = 720,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        # a merge of _prepare_rotary_positional_embeddings from cogvideoX.finetune.py and diffusers implementation. 
-        # add base_height and base_width to make it more flexible
-        grid_height = height // (self.vae_scale_factor_spatial * self.model.config.patch_size)
-        grid_width = width // (self.vae_scale_factor_spatial * self.model.config.patch_size)
-        base_size_width = base_width // (self.vae_scale_factor_spatial * self.model.config.patch_size)
-        base_size_height = base_height // (self.vae_scale_factor_spatial * self.model.config.patch_size)
 
-        grid_crops_coords = get_resize_crop_region_for_grid(
-            (grid_height, grid_width), base_size_width, base_size_height
-        )
+        grid_height = height // (vae_scale_factor_spatial * patch_size)
+        grid_width = width // (vae_scale_factor_spatial * patch_size)
+        base_size_width = base_width // (vae_scale_factor_spatial * patch_size)
+        base_size_height = base_height // (vae_scale_factor_spatial * patch_size)
+
+        grid_crops_coords = get_resize_crop_region_for_grid((grid_height, grid_width), base_size_width, base_size_height)
         freqs_cos, freqs_sin = get_3d_rotary_pos_embed(
-            embed_dim=self.model.config.attention_head_dim,
+            embed_dim=attention_head_dim,
             crops_coords=grid_crops_coords,
             grid_size=(grid_height, grid_width),
             temporal_size=num_frames,
@@ -447,6 +447,7 @@ class CogVideoXWorkFlow(pl.LightningModule):
         freqs_cos = freqs_cos.to(device=device)
         freqs_sin = freqs_sin.to(device=device)
         return freqs_cos, freqs_sin
+    
     @torch.no_grad()
     def sample(
         self,
@@ -625,7 +626,15 @@ class CogVideoXWorkFlow(pl.LightningModule):
 
         # 7. Create rotary embeds if required
         image_rotary_emb = (
-            self._prepare_rotary_positional_embeddings(height, width, latents.size(1), device)
+            self._prepare_rotary_positional_embeddings(
+                height=height,
+                width=width,
+                num_frames=latents.shape[1],
+                vae_scale_factor_spatial=self.vae_scale_factor_spatial,
+                patch_size=self.model.config.patch_size,
+                attention_head_dim=self.model.config.attention_head_dim,
+                device=self.device,
+            )
             if self.model.config.use_rotary_positional_embeddings
             else None
         )
@@ -742,6 +751,7 @@ class CogVideoXWorkFlow(pl.LightningModule):
             "videos": videos,
             "prompts": prompts,
         }
+    
     def training_step(self, batch, batch_idx):
         # print(type(batch),batch.keys(),type(batch['instance_video']),batch['instance_video'].shape);exit(); # <class 'dict'> dict_keys(['instance_prompt', 'instance_video'])
         batch = self.get_batch_input(batch)
@@ -773,8 +783,8 @@ class CogVideoXWorkFlow(pl.LightningModule):
         image_rotary_emb = (
             # in the first place, we assume this function is the same during inference and train. 
             self._prepare_rotary_positional_embeddings(
-                height=height,
-                width=width,
+                height=height*self.vae_scale_factor_spatial,
+                width=width*self.vae_scale_factor_spatial,
                 num_frames=num_frames,
                 vae_scale_factor_spatial=self.vae_scale_factor_spatial,
                 patch_size=self.model.config.patch_size,
