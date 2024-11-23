@@ -326,7 +326,6 @@ conda activate videotuna
 pip install -r requirements.txt
 git clone https://github.com/JingyeChen/SwissArmyTransformer
 pip install -e SwissArmyTransformer/
-rm -rf SwissArmyTransformer
 git clone https://github.com/tgxs002/HPSv2.git
 cd ./HPSv2
 pip install -e .
