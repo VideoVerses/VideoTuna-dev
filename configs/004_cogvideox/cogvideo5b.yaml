@@ -8,7 +8,7 @@ model:
     first_stage_config:
       target: diffusers.AutoencoderKLCogVideoX
       params:
-        pretrained_model_name_or_path: THUDM/CogVideoX-5b 
+        pretrained_model_name_or_path: checkpoints/cogvideo/CogVideoX-5b 
         subfolder: "vae"
     cond_stage_config:
       target: src.lvdm.modules.encoders.condition.FrozenT5Embedder
@@ -21,7 +21,7 @@ model:
     denoiser_config:
       target: diffusers.CogVideoXTransformer3DModel
       params:
-        pretrained_model_name_or_path: THUDM/CogVideoX-5b 
+        pretrained_model_name_or_path: checkpoints/cogvideo/CogVideoX-5b 
         subfolder: "transformer"
         load_dtype: fp16 # bf16 5b fp16 2B 
         # revision: null 
@@ -38,7 +38,7 @@ model:
     scheduler_config:
       target: diffusers.CogVideoXDPMScheduler
       params:
-        pretrained_model_name_or_path: THUDM/CogVideoX-5b 
+        pretrained_model_name_or_path: checkpoints/cogvideo/CogVideoX-5b
         subfolder: scheduler
 
 ## training config 

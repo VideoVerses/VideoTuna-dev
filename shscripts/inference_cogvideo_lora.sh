@@ -1,4 +1,5 @@
 # ----------------------diffusers based pl inference ----------------------
+# ‘configs/004_cogvideox/cogvideo2b.yaml’ or 'configs/004_cogvideox/cogvideo5b.yaml'
 config='configs/004_cogvideox/cogvideo2b.yaml'
 prompt_file="inputs/t2v/prompts.txt"
 current_time=$(date +%Y%m%d%H%M%S)
