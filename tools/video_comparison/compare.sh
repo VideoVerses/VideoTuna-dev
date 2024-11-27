@@ -20,7 +20,7 @@ if [ ! -f "${input_dir}/prompts.txt" ]; then
 fi
 
 # run check_input.py, will create images using t2i if there is no images in the input directory
-python tools/video_comparison/check_input.py --input_dir=$input_dir --seed=$seed
+python tools/video_comparison/check_input.py --input_dir=$input_dir
 
 
 
