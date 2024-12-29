@@ -8,11 +8,16 @@ __pycache__/
 *.egg-info
 *.ckpt
 
+wandb
+lightning_logs
+cache
 results
 checkpoints
 pretrained_models/
 samples/
 Dataset/
+output/
+outputs/
 
 HPSv2/
 SwissArmyTransformer/
