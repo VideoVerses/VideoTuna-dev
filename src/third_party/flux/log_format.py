@@ -41,7 +41,9 @@ if os.path.exists("debug.log"):
         pass
 
 # Create a file handler
-file_handler = logging.FileHandler("debug.log")
+if not os.path.exists("cache"):
+    os.makedirs("cache")
+file_handler = logging.FileHandler("cache/debug.log")
 file_handler.setLevel(logging.DEBUG)  # Capture debug and above
 file_handler.setFormatter(
     logging.Formatter("%(asctime)s [%(levelname)s] (%(name)s) %(message)s")

@@ -2150,7 +2150,8 @@ class Model(pl.LightningModule):
         # If we receive a False from the enumerator, we know we reached the next epoch.
         if batch is False:
             logger.debug(f"Reached the end of epoch {self.current_epoch}")
-            loss = torch.load("loss_tensor.pt")
+            loss_output_dir = os.path.join(self.config.output_dir, "cache")
+            loss = torch.load(os.path.join(loss_output_dir, "loss_tensor.pt"))
             return loss
 
         if batch is None:
@@ -2523,7 +2524,11 @@ class Model(pl.LightningModule):
                 training_logger.debug("Backwards pass.")
                 # self.accelerator.backward(loss)
                 loss.backward(retain_graph=True)
-                torch.save(loss, "loss_tensor.pt")
+                # loss_tensor save dir
+                loss_output_dir = os.path.join(self.config.output_dir, "cache")
+                if not os.path.exists(loss_output_dir):
+                    os.makedirs(loss_output_dir)
+                torch.save(loss, os.path.join(loss_output_dir, "loss_tensor.pt"))
                 
 
                 if (
@@ -2868,8 +2873,21 @@ class Model(pl.LightningModule):
         with open("configs/006_flux/config.json", "r") as f:
             output_dir = json.load(f).get("--output_dir")
         lora_weights = lora_checkpoint_callback.on_save_checkpoint(self.trainer, pl.LightningModule, self.state_dict())
+
+        new_lora_weights = {}
+        # rename the state_dict keys
+        for k in list(lora_weights.keys()):
+            k_list = k.split(".")
+            # remove the default and default_0 from the key list
+            if "default" in k_list:
+                k_list.remove("default")
+            if "default_0" in k_list:
+                k_list.remove("default_0")
+            new_k = ".".join(k_list)
+            new_lora_weights[new_k] = lora_weights[k]
+
         save_path = os.path.join(output_dir, 'pytorch_lora_own.ckpt')
-        torch.save(lora_weights, save_path)
+        torch.save(new_lora_weights, save_path)
         print("lora saved successfully at:", save_path)
 
    

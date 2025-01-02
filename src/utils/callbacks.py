@@ -27,13 +27,21 @@ class LoraModelCheckpoint(pl.callbacks.ModelCheckpoint):
         the hook in pl.module and ModelCheckpoint is slight different. 
         pl.Module: https://lightning.ai/docs/pytorch/stable/common/lightning_module.html#on-save-checkpoint
         ModelCheckpoint: https://pytorch-lightning.readthedocs.io/en/1.5.10/extensions/generated/pytorch_lightning.callbacks.ModelCheckpoint.html"""
-        # only save lora 
-        state_dict = checkpoint['state_dict']
+        # only save lora
+        if 'state_dict' in checkpoint: 
+            state_dict = checkpoint['state_dict']
+        else:
+            state_dict = checkpoint
+
         for k in list(state_dict.keys()):
             if 'lora' not in k:
                 del state_dict[k]
-        checkpoint['state_dict'] = state_dict
-        checkpoint = super().on_save_checkpoint(trainer, pl_module, checkpoint)
+
+        if 'state_dict' in checkpoint:
+            checkpoint['state_dict'] = state_dict
+        else:
+            checkpoint = state_dict
+
         return checkpoint
 
 

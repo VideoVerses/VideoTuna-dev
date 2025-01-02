@@ -4,7 +4,9 @@ sys.path.insert(0, os.getcwd())
 
 import argparse
 import json
-    
+import time
+from pathlib import Path
+
 from src.third_party.flux.training.state_tracker import StateTracker
 from src.third_party.flux import log_format
 import logging
@@ -19,6 +21,25 @@ import torch.distributed as dist
 
 logger = logging.getLogger("SimpleTuner")
 logger.setLevel(environ.get("SIMPLETUNER_LOG_LEVEL", "INFO"))
+
+
+def config_process(config):
+    # add timestamp to the output_dir
+    output_dir = Path(config["--output_dir"])
+    time_str = time.strftime("%Y%m%d%H%M%S")
+
+    folder_name = output_dir.stem
+    name_list = folder_name.split("_")
+    if len(name_list[-1]) == 14:
+        folder_name = "_".join(name_list[:-1])
+    folder_name = f"{folder_name}_{time_str}"
+    output_dir = output_dir.parent / folder_name
+    config["--output_dir"] = str(output_dir)
+
+    with open(args.config_path, "w") as f:
+        json.dump(config, f, indent=4)
+    return config
+
 
 def main(args):
     try:
@@ -36,6 +57,8 @@ def main(args):
             config = json.load(f)
         with open(args.data_config_path) as f:
             data_config = json.load(f)
+        # process config
+        config = config_process(config)
 
         data_dir = data_config[0]["instance_data_dir"]
         dm = ModelData(data_dir)
@@ -48,7 +71,7 @@ def main(args):
         model = Model()
         model.run()
         print("loaded model")
-        trainer = Trainer(accelerator='gpu', max_epochs=config["--num_train_epochs"], strategy="ddp", limit_train_batches=1490)
+        trainer = Trainer(accelerator='gpu', max_epochs=config["--num_train_epochs"], strategy="ddp", limit_train_batches=1490, logger=False)
         print("loaded Trainer, training...")
         # print("model params:", list(model.parameters()))
         if dist.is_available() and dist.is_initialized():
