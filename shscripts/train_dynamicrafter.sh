@@ -21,5 +21,5 @@ python scripts/train.py \
 --ckpt $DCCKPT \
 --devices '0,' \
 lightning.trainer.num_nodes=1 \
---auto_resume True
+--auto_resume
 

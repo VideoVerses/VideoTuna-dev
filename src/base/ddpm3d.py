@@ -601,7 +601,6 @@ class LVDMFlow(DDPMFlow):
         """same as decode_first_stage but without decorator"""
         return self._decode_core(z, **kwargs)
     
-    @torch.no_grad()
     def get_batch_input(self, batch, random_uncond, return_first_stage_outputs=False, return_original_cond=False, is_imgbatch=False):
         ## image/video shape: b, c, t, h, w
         data_key = 'jpg' if is_imgbatch else self.first_stage_key

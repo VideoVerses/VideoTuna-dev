@@ -11,7 +11,8 @@ from einops import rearrange, repeat
 
 import torch
 from pytorch_lightning import seed_everything
-
+from typing import List,Union
+from omegaconf import ListConfig
 
 sys.path.insert(0, os.getcwd())
 sys.path.insert(1, f'{os.getcwd()}/src')

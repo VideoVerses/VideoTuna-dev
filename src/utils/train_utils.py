@@ -270,12 +270,19 @@ def get_autoresume_path(logdir):
 def set_logger(logfile, name='mainlogger'):
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
+    
+    # Set the logger to prevent log propagation to the parent logger and print twice.
+    logger.propagate = False
+
     fh = logging.FileHandler(logfile, mode='w')
     fh.setLevel(logging.INFO)
+
     ch = logging.StreamHandler()
     ch.setLevel(logging.DEBUG)
+
     fh.setFormatter(logging.Formatter("%(asctime)s-%(levelname)s: %(message)s"))
     ch.setFormatter(logging.Formatter("%(message)s"))
+
     logger.addHandler(fh)
     logger.addHandler(ch)
     return logger

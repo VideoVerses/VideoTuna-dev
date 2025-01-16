@@ -10,7 +10,6 @@ model:
       lora_rank: 4
       lora_alpha: 1
       lora_dropout: 0.0
-    loss_type: l1
     log_every_t: 200
     first_stage_key: video
     cond_stage_key: caption

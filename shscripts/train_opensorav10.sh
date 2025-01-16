@@ -13,4 +13,4 @@ lightning.trainer.num_nodes=1 \
 --base $CONFIG \
 --name "$current_time"_$EXPNAME \
 --logdir $LOGDIR \
---auto_resume True
+--auto_resume

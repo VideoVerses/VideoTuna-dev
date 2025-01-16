@@ -4,7 +4,6 @@ model:
   # empty_params_only: True # disable this means finetuning all parameters
   target: src.base.ddpm3d.LVDMFlow
   params:
-    loss_type: l1
     log_every_t: 200
     first_stage_key: video
     cond_stage_key: caption

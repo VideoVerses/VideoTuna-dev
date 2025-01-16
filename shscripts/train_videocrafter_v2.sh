@@ -20,4 +20,4 @@ python scripts/train.py \
 --name ${CURRENT_TIME}_${EXPNAME} \
 --devices '0,' \
 lightning.trainer.num_nodes=1 \
---auto_resume True
+--auto_resume
