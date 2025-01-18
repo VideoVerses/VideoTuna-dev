@@ -54,6 +54,7 @@ def generate_video(
     dtype: torch.dtype = torch.bfloat16,
     generate_type: str = Literal["t2v", "i2v", "v2v"],  # i2v: image to video, v2v: video to video
     seed: int = 42,
+    prompt_refine: bool = False,
 ):
     """
     Generates a video based on the given input and saves it to the specified path.
@@ -96,6 +97,11 @@ def generate_video(
         prompts = [model_input]
         image_or_video_paths = [None]
     
+    if prompt_refine:
+        from src.utils.prompt_refine import convert_prompt
+        print(prompts)
+        prompts = [convert_prompt(prompt) for prompt in prompts]
+        print(prompts)
     # 1.  Load the pre-trained CogVideoX pipeline with the specified precision (bfloat16).
     # add device_map="balanced" in the from_pretrained function and remove the enable_model_cpu_offload()
     # function to use Multi GPUs.
@@ -210,7 +216,7 @@ if __name__ == "__main__":
         "--dtype", type=str, default="bfloat16", help="The data type for computation (e.g., 'float16' or 'bfloat16')"
     )
     parser.add_argument("--seed", type=int, default=42, help="The seed for reproducibility")
-
+    parser.add_argument("--refine_prompt", type=bool, default=False, help="Whether to refine the prompt")
     args = parser.parse_args()
     dtype = torch.float16 if args.dtype == "float16" else torch.bfloat16
     generate_video(
@@ -226,4 +232,5 @@ if __name__ == "__main__":
         dtype=dtype,
         generate_type=args.generate_type,
         seed=args.seed,
+        prompt_refine=args.refine_prompt
     )

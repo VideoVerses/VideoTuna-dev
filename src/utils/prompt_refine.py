@@ -72,7 +72,7 @@ def convert_prompt(prompt: str, retry_times: int = 3, type: str = "t2v", image_p
     #     azure_endpoint=""
     # )
     # deepseek version 
-    client = OpenAI(api_key="your-deepseek-key",base_url="https://api.deepseek.com")
+    client = OpenAI(api_key="None",base_url="https://api.deepseek.com")
     text = prompt.strip()
     for i in range(retry_times):
         if type == "t2v":

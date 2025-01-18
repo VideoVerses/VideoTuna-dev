@@ -14,3 +14,4 @@ python3 scripts/inference_cogvideo.py \
 --bs 1 --height 480 --width 720 \
 --fps 16 \
 --seed 6666 \
+--refine_prompt True 

@@ -76,7 +76,7 @@ def load_model(args, cuda_idx=0):
     config = OmegaConf.load(args.config)
     model_config = config.pop("model", OmegaConf.create())
     if args.lorackpt is not None:
-        model_config["params"]["lora_args"] = {"lora_ckpt": args.lorackpt}
+        model_config["params"]["adapter_config"]["ckpt_path"] = args.lorackpt
     model = instantiate_from_config(model_config)
     model = model.cuda(cuda_idx)
     # load weights

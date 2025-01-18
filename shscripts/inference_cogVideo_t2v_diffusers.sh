@@ -7,7 +7,8 @@ python scripts/inference_cogVideo_diffusers.py \
     --num_inference_steps 50 \
     --guidance_scale 3.5 \
     --num_videos_per_prompt 1 \
-    --dtype float16
+    --dtype float16 \
+    --refine_prompt True 
 
 # sample multiple videos
 # python scripts/inference_cogVideo_diffusers.py \
