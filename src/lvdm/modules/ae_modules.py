@@ -4,7 +4,7 @@ import torch
 import numpy as np
 import torch.nn as nn
 from einops import rearrange
-from utils.common_utils import instantiate_from_config
+from src.utils.common_utils import instantiate_from_config
 from src.lvdm.modules.attention import LinearAttention
 
 def nonlinearity(x):

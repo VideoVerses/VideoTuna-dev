@@ -2,8 +2,8 @@ export TOKENIZERS_PARALLELISM=false
 
 # dependencies
 SDCKPT="checkpoints/stablediffusion/v2-1_512-ema/model.ckpt"        # pretrained checkpoint of stablediffusion 2.1
-VC2CKPT="checkpoints/videocrafter/t2v_v2_512/model_converted.ckpt"  # pretrained checkpoint of videocrafter2
-CONFIG='configs/001_videocrafter2/vc2_t2v_320x512.yaml'             # experiment config: model+data+training
+VC2CKPT="checkpoints/videocrafter/t2v_v2_512/model.ckpt"  # pretrained checkpoint of videocrafter2
+CONFIG='configs/001_videocrafter2/vc2_t2v_320x512_debug.yaml'             # experiment config: model+data+training
 
 # exp saving directory: ${RESROOT}/${CURRENT_TIME}_${EXPNAME}
 RESROOT="results/train"                                             # root directory for saving multiple experiments
