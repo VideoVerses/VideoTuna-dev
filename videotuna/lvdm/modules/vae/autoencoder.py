@@ -6,9 +6,18 @@ import torch
 import torch.nn.functional as F
 from einops import rearrange
 
+<<<<<<< HEAD:videotuna/lvdm/modules/vae/autoencoder.py
 from videotuna.base.distributions import DiagonalGaussianDistribution
 from videotuna.lvdm.modules.ae_modules import Decoder, Encoder
 from videotuna.utils.common_utils import instantiate_from_config
+=======
+import torch.nn.functional as F
+import pytorch_lightning as pl
+
+from src.lvdm.modules.ae_modules import Encoder, Decoder
+from src.base.distributions import DiagonalGaussianDistribution
+from src.utils.common_utils import instantiate_from_config
+>>>>>>> 0d3bef8 (fix: fix import bugs and debug):src/lvdm/modules/vae/autoencoder.py
 
 
 class AutoencoderKL(pl.LightningModule):
