@@ -327,6 +327,7 @@ conda create -n videotuna python=3.10 -y
 conda activate videotuna
 pip install poetry
 poetry install
+poetry run pip install "modelscope[cv]" -f https://modelscope.oss-cn-beijing.aliyuncs.com/releases/repo.html
 ```
 **Flash-attn installation (Optional)**
 

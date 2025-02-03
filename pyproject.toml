@@ -9,13 +9,6 @@ readme = "README.md"
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-[[tool.poetry.source]]
-name = "pypi"
-
-[[tool.poetry.source]]
-name = "modelscope"
-url = "https://modelscope.oss-cn-beijing.aliyuncs.com/releases/repo.html"
-
 [tool.poetry.dependencies]
 python = "^3.10"
 deepspeed = "0.15.4"
@@ -58,7 +51,6 @@ moviepy = "1.0.3"
 open-clip-torch = "2.12.0"
 numpy = "==1.*"
 diffusers = "^0.32.2"
-modelscope = { version = "1.22.3", extras = ["cv"] }
 torchsde = "0.2.6"
 colorama = "0.4.6"
 torch-optimi = "^0.2.1"
