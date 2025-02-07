@@ -17,7 +17,10 @@ import pytorch_lightning as pl
 from src.lvdm.modules.ae_modules import Encoder, Decoder
 from src.base.distributions import DiagonalGaussianDistribution
 from src.utils.common_utils import instantiate_from_config
+<<<<<<< HEAD:videotuna/lvdm/modules/vae/autoencoder.py
 >>>>>>> 0d3bef8 (fix: fix import bugs and debug):src/lvdm/modules/vae/autoencoder.py
+=======
+>>>>>>> 0d3bef81ba5029cfb5a783bd5e058f12577fc4da:src/lvdm/modules/vae/autoencoder.py
 
 
 class AutoencoderKL(pl.LightningModule):
