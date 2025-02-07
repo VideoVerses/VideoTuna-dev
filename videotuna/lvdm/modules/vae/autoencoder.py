@@ -20,7 +20,11 @@ from src.utils.common_utils import instantiate_from_config
 <<<<<<< HEAD:videotuna/lvdm/modules/vae/autoencoder.py
 >>>>>>> 0d3bef8 (fix: fix import bugs and debug):src/lvdm/modules/vae/autoencoder.py
 =======
+<<<<<<< HEAD
 >>>>>>> 0d3bef8 (fix: fix import bugs and debug):src/lvdm/modules/vae/autoencoder.py
+=======
+>>>>>>> 0d3bef81ba5029cfb5a783bd5e058f12577fc4da:src/lvdm/modules/vae/autoencoder.py
+>>>>>>> 719266ce850d5f33f7bbaec7c3f8c66faabd3831
 
 
 class AutoencoderKL(pl.LightningModule):
