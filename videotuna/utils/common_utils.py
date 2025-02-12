@@ -1,5 +1,6 @@
 import importlib
 import os
+from colorama import Fore, Style
 
 import cv2
 import numpy as np
@@ -81,3 +82,13 @@ def setup_dist(args):
         return
     torch.cuda.set_device(args.local_rank)
     torch.distributed.init_process_group("nccl", init_method="env://")
+
+
+def print_green(text):
+    print(Fore.GREEN + text + Style.RESET_ALL)
+
+def print_red(text):
+    print(Fore.RED + text + Style.RESET_ALL)
+
+def print_yellow(text):
+    print(Fore.YELLOW + text + Style.RESET_ALL)

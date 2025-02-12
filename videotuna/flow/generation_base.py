@@ -1,13 +1,20 @@
+import logging
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
+from colorama import Fore, Style
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
-from typing import Any, Dict, List, Optional, Union
+from torch.optim.lr_scheduler import CosineAnnealingLR, LambdaLR
 
-from src.base.train import TrainBase
-from src.base.inference import InferenceBase
-from src.utils.common_utils import instantiate_from_config
+from videotuna.base.train import TrainBase
+from videotuna.base.inference import InferenceBase
+from videotuna.utils.common_utils import instantiate_from_config, print_green, print_yellow
 
+
+mainlogger = logging.getLogger("mainlogger")
 
 class GenerationFlow(TrainBase, InferenceBase):
     """
@@ -40,8 +47,8 @@ class GenerationFlow(TrainBase, InferenceBase):
         super().__init__()
 
         # instantiate the modules
-        instantiate_first_stage(first_stage_config)
-        instantiate_cond_stage(cond_stage_config)
+        self.instantiate_first_stage(first_stage_config)
+        self.instantiate_cond_stage(cond_stage_config)
         self.denoiser = instantiate_from_config(denoiser_config)
         self.scheduler = instantiate_from_config(scheduler_config)
 
@@ -63,7 +70,7 @@ class GenerationFlow(TrainBase, InferenceBase):
         """
         model = instantiate_from_config(config)
         self.first_stage_model = model.eval()
-        self.first_stage_model.train = disabled_train
+        # self.first_stage_model.train = disabled_train
         for param in self.first_stage_model.parameters():
             param.requires_grad = False
     
@@ -75,7 +82,7 @@ class GenerationFlow(TrainBase, InferenceBase):
         """
         model = instantiate_from_config(config)
         self.cond_stage_model = model.eval()
-        self.cond_stage_model.train = disabled_train
+        # self.cond_stage_model.train = disabled_train
         for param in self.cond_stage_model.parameters():
             param.requires_grad = False
 
@@ -132,6 +139,67 @@ class GenerationFlow(TrainBase, InferenceBase):
             raise NotImplementedError
         return lr_scheduler
     
+    def from_pretrained(self,
+                        ckpt_path: Optional[Union[str, Path]] = None,
+                        ignore_missing_ckpts: bool = False) -> None:
+        """
+        Loads the weights of the model from a checkpoint file.
+
+        :param ckpt_path: Path to the checkpoint file.
+        :param ignore_missing_ckpts: If True, ignores missing checkpoints.
+        """
+        assert ckpt_path is not None, "Please provide a valid checkpoint path."
+
+        ckpt_path = Path(ckpt_path)
+        # load first_stage_model
+        if (ckpt_path / "first_stage.ckpt").exists():
+            self.first_stage_model = self.load_model(self.first_stage_model, ckpt_path / "first_stage.ckpt")
+            print_green("Successfully loaded first_stage_model from checkpoint.")
+        elif ignore_missing_ckpts:
+            print_yellow("Checkpoint of first_stage_model file not found. Ignoring.")
+        else:
+            raise FileNotFoundError("Checkpoint of fisrt stage model file not found.")
+
+        # load cond_stage_model
+        if (ckpt_path / "cond_stage.ckpt").exists():
+            self.cond_stage_model = self.load_model(self.cond_stage_model, ckpt_path / "cond_stage.ckpt")
+            print_green("Successfully loaded cond_stage_model from checkpoint.")
+        elif ignore_missing_ckpts:
+            print_yellow("Checkpoint of cond_stage_model file not found. Ignoring.")
+        else:
+            raise FileNotFoundError("Checkpoint of cond_stage model file not found.")
+        
+        # load denoiser
+        if (ckpt_path / "denoiser.ckpt").exists():
+            self.denoiser = self.load_model(self.denoiser, ckpt_path / "denoiser.ckpt")
+            print_green("Successfully loaded denoiser from checkpoint.")
+        elif ignore_missing_ckpts:
+            print_yellow("Checkpoint of denoiser file not found. Ignoring.")
+        else:
+            raise FileNotFoundError("Checkpoint of denoiser file not found.")
+    
     def _freeze_model(self):
         for name, para in self.denoiser.named_parameters():
             para.requires_grad = False
+    
+    @staticmethod
+    def load_model(model: nn.Module, ckpt_path: Optional[Union[str, Path]] = None):
+        """
+        Loads the weights of the model from a checkpoint file.
+
+        :param model: The model to be loaded.
+        :param ckpt_path: Path to the checkpoint file.
+        """
+        assert ckpt_path is not None, "Please provide a valid checkpoint path."
+
+        ckpt_path = Path(ckpt_path)
+        if ckpt_path.exists():
+            ckpt = torch.load(ckpt_path, map_location=torch.device('cpu'))
+            if 'state_dict' in ckpt:
+                state_dict = ckpt['state_dict']
+            else:
+                state_dict = ckpt
+            model.load_state_dict(state_dict)
+            return model
+        else:
+            raise FileNotFoundError("Checkpoint of model file not found.")

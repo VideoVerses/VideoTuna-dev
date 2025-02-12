@@ -1,8 +1,8 @@
-model:
+flow:
   base_learning_rate: 6.0e-06 # 1.5e-04
   scale_lr: False
   # empty_params_only: True # disable this means finetuning all parameters
-  target: src.flow.generation_base.GenerationFlow
+  target: videotuna.flow.videocrafter.VideocrafterFlow
   params:
     log_every_t: 200
     first_stage_key: video
@@ -23,14 +23,14 @@ model:
     scale_b: 0.7 # adapt to videocrafter-v2
 
     scheduler_config:
-      target: src.base.diffusion_schedulers.LDMScheduler
+      target: videotuna.scheduler.LDDPM
       params: 
         timesteps: 1000
         linear_start: 0.00085
         linear_end: 0.012
 
     denoiser_config:
-      target: src.lvdm.modules.networks.openaimodel3d.UNetModel
+      target: videotuna.lvdm.modules.networks.openaimodel3d.UNetModel
       params:
         in_channels: 4
         out_channels: 4
@@ -58,8 +58,9 @@ model:
         temporal_length: 16
         addition_attention: true
         fps_cond: true # adapt to videocrafter-v2
+
     first_stage_config:
-      target: src.lvdm.modules.vae.autoencoder.AutoencoderKL
+      target: videotuna.lvdm.modules.vae.autoencoder.AutoencoderKL
       params:
         embed_dim: 4
         monitor: val/rec_loss
@@ -80,61 +81,70 @@ model:
           dropout: 0.0
         lossconfig:
           target: torch.nn.Identity
+
     cond_stage_config:
-      target: src.lvdm.modules.encoders.condition.FrozenOpenCLIPEmbedder
+      target: videotuna.lvdm.modules.encoders.condition.FrozenOpenCLIPEmbedder
       params:
         freeze: true
         layer: penultimate
+        
+train:
+  data:
+    target: videotuna.data.lightning_data.DataModuleFromConfig
+    params:
+      batch_size: 4
+      num_workers: 16
+      wrap: false
+      train:
+        target: videotuna.data.datasets.DatasetFromCSV
+        params:
+          csv_path: Dataset/ToyDataset/toydataset.csv
+          resolution: [320, 512]
+          video_length: 16
+          frame_interval: 3
+          train: True
+      validation:
+        target: videotuna.data.datasets.DatasetFromCSV
+        params:
+          csv_path: Dataset/ToyDataset/toydataset.csv
+          resolution: [320, 512]
+          video_length: 16
+          frame_interval: 3
+          train: False
 
-data:
-  target: src.data.lightning_data.DataModuleFromConfig
-  params:
-    batch_size: 4
-    num_workers: 16
-    wrap: false
-    train:
-      target: src.data.datasets.DatasetFromCSV
-      params:
-        csv_path: Dataset/ToyDataset/toydataset.csv
-        resolution: [320, 512]
-        video_length: 16
-        frame_interval: 3
-        train: True
-    validation:
-      target: src.data.datasets.DatasetFromCSV
-      params:
-        csv_path: Dataset/ToyDataset/toydataset.csv
-        resolution: [320, 512]
-        video_length: 16
-        frame_interval: 3
-        train: False
+  lightning:
+    trainer:
+      benchmark: True
+      num_nodes: 1
+      accumulate_grad_batches: 2
+      max_epochs: 2000
+      precision: bf16 # training precision
+    callbacks:
+      image_logger:
+        target: videotuna.utils.callbacks.ImageLogger
+        params:
+          batch_frequency: 500 #2
+          max_images: 6
+          to_local: True # save videos into files
+          log_images_kwargs:
+            unconditional_guidance_scale: 12 # need this, otherwise it is grey
+      metrics_over_trainsteps_checkpoint:
+        target: pytorch_lightning.callbacks.ModelCheckpoint
+        params:
+          filename: "{epoch:06}-{step:09}"
+          save_weights_only: False
+          every_n_epochs: 300
+          every_n_train_steps: null
 
-lightning:
-  trainer:
-    benchmark: True
-    num_nodes: 1
-    accumulate_grad_batches: 2
-    max_epochs: 2000
-    precision: bf16 # training precision
-  callbacks:
-    image_logger:
-      target: src.utils.callbacks.ImageLogger
-      params:
-        batch_frequency: 500 #2
-        max_images: 6
-        to_local: True # save videos into files
-        log_images_kwargs:
-          unconditional_guidance_scale: 12 # need this, otherwise it is grey
-    modelcheckpoint:
-      target: pytorch_lightning.callbacks.ModelCheckpoint
-      params:
-        every_n_epochs: 1
-        filename: "{epoch:04}-{step:06}"
-    metrics_over_trainsteps_checkpoint:
-      target: pytorch_lightning.callbacks.ModelCheckpoint
-      params:
-        filename: "{epoch:06}-{step:09}"
-        save_weights_only: False
-        every_n_epochs: 300
-        every_n_train_steps: null
-    
+inference:
+  mode: t2v
+  savedir: results/t2v/videocrafter2
+  seed: 42
+  height: 320
+  width: 512
+  fps: 28
+  n_samples_prompt: 3
+  bs: 2
+  ddim_steps: 50
+  ddim_eta: 1.0
+  unconditional_guidance_scale: 12.0

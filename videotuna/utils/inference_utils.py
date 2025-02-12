@@ -35,7 +35,7 @@ def get_target_filelist(data_dir, ext):
         raise ValueError(f"No file with extensions {ext} found in {data_dir}.")
     return file_list
 
-
+# inplemented in InferenceBase
 def load_prompts_from_txt(prompt_file: str):
     """Load and return a list of prompts from a text file, stripping whitespace."""
     with open(prompt_file, "r") as f:
@@ -43,7 +43,7 @@ def load_prompts_from_txt(prompt_file: str):
     prompt_list = [line.strip() for line in lines if line.strip() != ""]
     return prompt_list
 
-
+# inplemented in GenerationFlow
 def load_model_checkpoint(model, ckpt):
     def load_checkpoint(model, ckpt, full_strict):
         state_dict = torch.load(ckpt, map_location="cpu")

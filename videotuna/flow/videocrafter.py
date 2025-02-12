@@ -1,14 +1,127 @@
+import logging
+import os
+import json
+import random
+import time
+import numpy as np
+from einops import rearrange, repeat
+from tqdm import tqdm, trange
+from contextlib import contextmanager
+from functools import partial
+from typing import Any, Dict, List, Optional, Union
+from pathlib import Path
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
-from typing import Any, Dict, List, Optional, Union
-from pathlib import Path
+from pytorch_lightning.utilities import rank_zero_only
+from torchvision.utils import make_grid
 
-from src.base.ema import LitEma
-from src.flow.generation_base import GenerationFlow
-from src.flow.utils import DiffusionWrapper
-from src.base.ddim import DDIMSampler
+from videotuna.base.ema import LitEma
+from videotuna.scheduler import DDIMSampler
+from videotuna.base.distributions import DiagonalGaussianDistribution, normal_kl
+from videotuna.flow.generation_base import GenerationFlow
+from videotuna.utils.common_utils import instantiate_from_config, print_green, print_yellow
+from videotuna.lvdm.modules.utils import (
+    default,
+    disabled_train,
+    exists,
+    extract_into_tensor,
+    noise_like,
+)
+
+mainlogger = logging.getLogger("mainlogger")
+
+
+class DiffusionWrapper(pl.LightningModule):
+    def __init__(self, diff_model_config, conditioning_key):
+        super().__init__()
+        if isinstance(diff_model_config, dict):
+            self.diffusion_model = instantiate_from_config(diff_model_config)
+        elif isinstance(diff_model_config, nn.Module):
+            self.diffusion_model = diff_model_config
+        else:
+            raise ValueError("diff_model_config should be a dict or a nn.Module")
+
+        self.conditioning_key = conditioning_key
+
+    def forward(self, x, t, c_concat: list = None, c_crossattn: list = None,
+                c_crossattn_stdit: list = None, mask: list = None,
+                c_adm=None, s=None,  **kwargs):
+        # temporal_context = fps is foNone
+        if self.conditioning_key is None:
+            out = self.diffusion_model(x, t)
+        elif self.conditioning_key == 'concat':
+            xc = torch.cat([x] + c_concat, dim=1)
+            out = self.diffusion_model(xc, t, **kwargs)
+        elif self.conditioning_key == 'crossattn':
+            cc = torch.cat(c_crossattn, 1)
+            out = self.diffusion_model(x, t, context=cc, **kwargs)
+        elif self.conditioning_key == 'crossattn_stdit':            
+            cc = torch.cat(c_crossattn_stdit, 1) # [b, 77, 1024] 
+            mask = torch.cat(mask, 1)
+            # TODO fix precision 
+            # if self.precision is not None and self.precision == 'bf16':
+                # print('Convert datatype')
+            cc = cc.to(torch.bfloat16)
+            self.diffusion_model = self.diffusion_model.to(torch.bfloat16)
+            
+            out = self.diffusion_model(x, t, y=cc, mask=mask) 
+            # def forward(self, x, timestep, y, mask=None, x_mask=None, fps=None, height=None, width=None, **kwargs):
+        elif self.conditioning_key == 'hybrid':
+            ## it is just right [b,c,t,h,w]: concatenate in channel dim
+            xc = torch.cat([x] + c_concat, dim=1)
+            cc = torch.cat(c_crossattn, 1)
+            out = self.diffusion_model(xc, t, context=cc, **kwargs)
+        elif self.conditioning_key == 'resblockcond':
+            cc = c_crossattn[0]
+            out = self.diffusion_model(x, t, context=cc)
+        elif self.conditioning_key == 'adm':
+            cc = c_crossattn[0]
+            out = self.diffusion_model(x, t, y=cc)
+        elif self.conditioning_key == 'hybrid-adm':
+            assert c_adm is not None
+            xc = torch.cat([x] + c_concat, dim=1)
+            cc = torch.cat(c_crossattn, 1)
+            out = self.diffusion_model(xc, t, context=cc, y=c_adm, **kwargs)
+        elif self.conditioning_key == 'hybrid-time':
+            assert s is not None
+            xc = torch.cat([x] + c_concat, dim=1)
+            cc = torch.cat(c_crossattn, 1)
+            out = self.diffusion_model(xc, t, context=cc, s=s)
+        elif self.conditioning_key == 'concat-time-mask':
+            # assert s is not None
+            xc = torch.cat([x] + c_concat, dim=1)
+            out = self.diffusion_model(xc, t, context=None, s=s, mask=mask)
+        elif self.conditioning_key == 'concat-adm-mask':
+            # assert s is not None
+            if c_concat is not None:
+                xc = torch.cat([x] + c_concat, dim=1)
+            else:
+                xc = x
+            out = self.diffusion_model(xc, t, context=None, y=s, mask=mask)
+        elif self.conditioning_key == 'hybrid-adm-mask':
+            cc = torch.cat(c_crossattn, 1)
+            if c_concat is not None:
+                xc = torch.cat([x] + c_concat, dim=1)
+            else:
+                xc = x
+            out = self.diffusion_model(xc, t, context=cc, y=s, mask=mask)
+        elif self.conditioning_key == 'hybrid-time-adm': # adm means y, e.g., class index
+            # assert s is not None
+            assert c_adm is not None
+            xc = torch.cat([x] + c_concat, dim=1)
+            cc = torch.cat(c_crossattn, 1)
+            out = self.diffusion_model(xc, t, context=cc, s=s, y=c_adm)
+        elif self.conditioning_key == 'crossattn-adm':
+            assert c_adm is not None
+            cc = torch.cat(c_crossattn, 1)
+            out = self.diffusion_model(x, t, context=cc, y=c_adm)
+        else:
+            raise NotImplementedError()
+
+        return out
 
 
 class VideocrafterFlow(GenerationFlow):
@@ -77,6 +190,7 @@ class VideocrafterFlow(GenerationFlow):
             scheduler_config,
             lr_scheduler_config,
         )
+        # self.inference_scheduler = DDIMSampler(self)
         # DDPMFlow related
         assert parameterization in ["eps", "x0", "v"], 'currently only supporting "eps" and "x0" and "v"'
         self.parameterization = parameterization
@@ -87,15 +201,15 @@ class VideocrafterFlow(GenerationFlow):
 
         # model related 
         self.first_stage_key = first_stage_key
-        self.cond_stage_model = None
         self.channels = channels
-        self.temporal_length = unet_config.params.get('temporal_length', 16)
+        self.temporal_length = denoiser_config.params.get('temporal_length', 16)
         self.image_size = image_size  # try conv?
         if isinstance(self.image_size, int):
             self.image_size = [self.image_size, self.image_size]
         self.use_positional_encodings = use_positional_encodings
         # TODO: remove the DiffusionWrapper
-        self.model = DiffusionWrapper(unet_config, conditioning_key)  # Using DiffusionWrapper to construct the model
+        # self.model = DiffusionWrapper(denoiser_config, conditioning_key)  # Using DiffusionWrapper to construct the model
+        self.model = DiffusionWrapper(self.denoiser, conditioning_key)
 
         self.use_ema = use_ema
         if self.use_ema:
@@ -107,8 +221,7 @@ class VideocrafterFlow(GenerationFlow):
 
         print('scheduler config type: ', type(scheduler_config))
         scheduler_config.parameterization = self.parameterization
-        self.scheduler = instantiate_from_config(scheduler_config)
-        self.num_timesteps = self.scheduler_config.num_timesteps
+        self.num_timesteps = self.scheduler.num_timesteps
 
         # others 
         if monitor is not None:
@@ -326,6 +439,31 @@ class VideocrafterFlow(GenerationFlow):
         x, c = self.get_batch_input(batch, random_uncond=random_uncond, is_imgbatch=is_imgbatch)
         loss, loss_dict = self(x, c, is_imgbatch=is_imgbatch, **kwargs)
         return loss, loss_dict
+    
+    def apply_model(self, x_noisy, t, cond, **kwargs):
+        if self.model.conditioning_key == "crossattn_stdit":
+            key = "c_crossattn_stdit"
+            cond = {key: [cond["y"]], "mask": [cond["mask"]]}  # support mask for T5
+        else:
+            if isinstance(cond, dict):
+                # hybrid case, cond is exptected to be a dict
+                pass
+            else:
+                if not isinstance(cond, list):
+                    cond = [cond]
+                key = (
+                    "c_concat"
+                    if self.model.conditioning_key == "concat"
+                    else "c_crossattn"
+                )
+                cond = {key: cond}
+
+        x_recon = self.model(x_noisy, t, **cond, **kwargs)
+
+        if isinstance(x_recon, tuple):
+            return x_recon[0]
+        else:
+            return x_recon
     
     def p_losses(self, x_start, cond, t, noise=None, **kwargs):
         noise = default(noise, lambda: torch.randn_like(x_start))
@@ -560,3 +698,126 @@ class VideocrafterFlow(GenerationFlow):
             samples, intermediates = self.sample(cond=cond, batch_size=batch_size, return_intermediates=True, **kwargs)
 
         return samples, intermediates
+    
+    def sample_batch_t2v(
+            self,
+            prompts: List[str],
+            fps: int,
+            noise_shape: Optional[tuple] = None,
+            n_samples_prompt: int = 1,
+            ddim_steps: int = 50,
+            ddim_eta: float = 1.0,
+            cfg_scale: float = 1.0,
+            temporal_cfg_scale: Optional[float] = None,
+            uncond_prompt: str = "",
+            **kwargs,
+        ) -> None:
+        """
+        Sample a batch of text-to-video (T2V) sequences.
+
+        :param model: The model used for generating the video.
+        :param sampler: The sampler used for sampling the video frames.
+        :param prompts: A list of text prompts for generating the video.
+        :param noise_shape: The shape of the noise input for the model.
+        :param fps: Frames per second for the generated video.
+        :param n_samples_prompt: Number of samples per prompt. Default is 1.
+        :param ddim_steps: Number of DDIM steps for the sampling process. Default is 50.
+        :param ddim_eta: The eta parameter for DDIM. Default is 1.0.
+        :param cfg_scale: The scale for classifier-free guidance. Default is 1.0.
+        :param temporal_cfg_scale: The scale for temporal classifier-free guidance. Default is None.
+        :param uncond_prompt: The unconditional prompt for classifier-free guidance. Default is an empty string.
+        :param kwargs: Additional keyword arguments.
+        """
+        # ----------------------------------------------------------------------------------
+        # make cond & uncond for t2v
+        batch_size = noise_shape[0]
+        text_emb = self.get_learned_conditioning(prompts)
+        fps = torch.tensor([fps] * batch_size).to(self.device).long()
+        cond = {"c_crossattn": [text_emb], "fps": fps}
+
+        if cfg_scale != 1.0:  # unconditional guidance
+            uc_text_emb = self.get_learned_conditioning(batch_size * [uncond_prompt])
+            uncond = {k: v for k, v in cond.items()}
+            uncond.update({"c_crossattn": [uc_text_emb]})
+        else:
+            uncond = None
+
+        # ----------------------------------------------------------------------------------
+        # sampling
+        batch_samples = []
+        for _ in range(n_samples_prompt):  # iter over batch of prompts
+            samples, _ = self.ddim_sampler.sample(
+                S=ddim_steps,
+                conditioning=cond,
+                batch_size=batch_size,
+                shape=noise_shape[1:],
+                verbose=False,
+                unconditional_guidance_scale=cfg_scale,
+                unconditional_conditioning=uncond,
+                eta=ddim_eta,
+                temporal_length=noise_shape[2],
+                conditional_guidance_scale_temporal=temporal_cfg_scale,
+                **kwargs,
+            )
+            res = self.decode_first_stage(samples)
+            batch_samples.append(res)
+        batch_samples = torch.stack(batch_samples, dim=1)
+        return batch_samples
+    
+    @torch.no_grad()
+    def inference(self, args, **kwargs):
+        # create inference sampler
+        self.ddim_sampler = DDIMSampler(self)
+        # load prompt list
+        prompt_list = self.load_inference_inputs(args.prompt_file, mode=args.mode)
+
+        # TODO: inference on multiple gpus
+
+        # noise shape
+        args.frames = self.temporal_length if args.frames is None else args.frames
+        h, w, frames, channels = (
+            args.height // 8,
+            args.width // 8,
+            args.frames,
+            self.channels,
+        )
+
+        # -----------------------------------------------------------------
+        # inference
+        format_file = {}
+        start = time.time()
+        n_iters = len(prompt_list) // args.bs + (
+            1 if len(prompt_list) % args.bs else 0
+        )
+        with torch.no_grad():
+            for idx in trange(0, n_iters, desc="Sample Iters"):
+                prompts = prompt_list[idx * args.bs : (idx + 1) * args.bs]
+                filenames = self.process_savename(prompts, args.n_samples_prompt)
+                ## inference
+                bs = args.bs if args.bs == len(prompts) else len(prompts)
+                noise_shape = [bs, channels, frames, h, w]
+                if args.mode == "t2v":
+                    batch_samples = self.sample_batch_t2v(
+                        prompts,
+                        args.fps,
+                        noise_shape,
+                        args.n_samples_prompt,
+                        args.ddim_steps,
+                        args.ddim_eta,
+                        args.unconditional_guidance_scale,
+                        args.unconditional_guidance_scale_temporal,
+                        args.uncond_prompt,
+                    )
+
+                if args.standard_vbench:
+                    self.save_videos_vbench(
+                        batch_samples, args.savedir, prompts, format_file, fps=args.savefps
+                    )
+                else:
+                    self.save_videos(batch_samples, args.savedir, filenames, fps=args.savefps)
+
+        if args.standard_vbench:
+            with open(os.path.join(args.savedir, "info.json"), "w") as f:
+                json.dump(format_file, f)
+
+        print_green(f"Saved in {args.savedir}. Time used: {(time.time() - start):.2f} seconds")
