@@ -143,7 +143,12 @@ class InferenceBase:
 
     @staticmethod
     def load_prompts_from_txt(prompt_file: str) -> List[str]:
-        """Load and return a list of prompts from a text file, stripping whitespace."""
+        """
+        Load and return a list of prompts from a text file, stripping whitespace.
+
+        :param prompt_file: The path to the text file containing the prompts.
+        :return: A list of prompts.
+        """
         with open(prompt_file, "r") as f:
             lines = f.readlines()
         prompt_list = [line.strip() for line in lines if line.strip() != ""]

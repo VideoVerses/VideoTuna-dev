@@ -15,21 +15,10 @@ from tqdm import tqdm, trange
 
 sys.path.insert(0, os.getcwd())
 sys.path.insert(1, f"{os.getcwd()}/src")
-# from videotuna.base.ddim import DDIMSampler
+
 from videotuna.scheduler import DDIMSampler
-from videotuna.base.ddim_multiplecond import DDIMSampler as DDIMSampler_multicond
 from videotuna.utils.args_utils import prepare_args
 from videotuna.utils.common_utils import instantiate_from_config
-from videotuna.utils.inference_utils import (
-    load_image_batch,
-    load_inputs_i2v,
-    load_model_checkpoint,
-    load_prompts_from_txt,
-    sample_batch_i2v,
-    sample_batch_t2v,
-    save_videos,
-    save_videos_vbench,
-)
 
 
 def get_parser():
@@ -165,34 +154,6 @@ def get_parser():
     #
     parser.add_argument("--savefps", type=str, default=10, help="video fps to generate")
     return parser
-
-
-def load_inputs(args):
-    """
-    load inputs:
-        t2v: prompts
-        i2v: prompts + images
-    """
-    assert (
-        args.prompt_file is not None or args.prompt_dir is not None
-    ), "Error: input file/dir NOT Found!"
-
-    if args.prompt_file is not None:
-        assert os.path.exists(args.prompt_file)
-        # load inputs for t2v
-        prompt_list = load_prompts_from_txt(args.prompt_file)
-        num_prompts = len(prompt_list)
-        filename_list = [f"prompt-{idx+1:04d}" for idx in range(num_prompts)]
-        image_list = None
-    elif args.prompt_dir is not None:
-        assert os.path.exists(args.prompt_dir)
-        # load inputs for i2v
-        filename_list, image_list, prompt_list = load_inputs_i2v(
-            args.prompt_dir,
-            video_size=(args.height, args.width),
-            video_frames=args.frames,
-        )
-    return prompt_list, image_list, filename_list
 
 
 def run_inference(args, gpu_num=1, rank=0, **kwargs):
