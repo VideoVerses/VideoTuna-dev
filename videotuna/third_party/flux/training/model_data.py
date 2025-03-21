@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 
 import pytorch_lightning as pl
 from accelerate.logging import get_logger
@@ -13,11 +14,19 @@ logger = get_logger(
     "SimpleTuner", log_level=os.environ.get("SIMPLETUNER_LOG_LEVEL", "INFO")
 )
 
+def create_txt_labels_from_dir(data_dir, caption):
+    """
+    Create multiple txt files, each txt file is the content of the caption string.
+    """
+    for image in os.listdir(data_dir):
+        with open(os.path.join(data_dir, Path(image).stem) + ".txt", "w") as f:
+            f.write(caption)
 
 class ModelData(pl.LightningDataModule):
     def __init__(
         self,
-        data_dir="/disk1/xuelei/SimpleTuner_flux/SimpleTuner/VideoTuna-internal/SimpleTuner/datasets/pseudo-camera-10k/train",
+        data_dir,
+        caption=None,
         batch_size=1,
     ):
         super().__init__()
@@ -25,6 +34,8 @@ class ModelData(pl.LightningDataModule):
         self.data_dir = data_dir
         self.batch_size = batch_size
         self.images = []
+        if caption is not None:
+            create_txt_labels_from_dir(data_dir, caption)
 
     def init_data_backend(self):
 

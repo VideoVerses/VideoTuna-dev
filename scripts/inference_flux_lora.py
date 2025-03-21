@@ -3,7 +3,7 @@ import os
 
 import torch
 from diffusers import FluxPipeline
-from inference_utils import load_prompt_file
+from videotuna.utils.inference_utils import load_prompts_from_txt
 
 
 def inference(args):
@@ -29,14 +29,14 @@ def inference(args):
     # prompt preprocessing
     if args.prompt.endswith(".txt"):
         # model_input is a file for t2i
-        prompts = load_prompt_file(prompt_file=args.prompt)
+        prompts = load_prompts_from_txt(prompt_file=args.prompt)
         os.makedirs(args.out_path, exist_ok=True)
         out_paths = [
             os.path.join(args.out_path, f"{i:05d}_{prompts[i]}.jpg")
             for i in range(len(prompts))
         ]
     else:
-        prompts = [prompt]
+        prompts = [args.prompt]
         out_paths = [args.out_path]
 
     for prompt, out_path in zip(prompts, out_paths):
@@ -56,9 +56,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_type", type=str, default="dev", choices=["dev", "schnell"]
     )
-    parser.add_argument("--prompt", type=str, default="A teddy bear.")
+    parser.add_argument("--prompt", type=str, default="A photo of a cat", help="Inference prompt, string or path to a .txt file")
     parser.add_argument("--out_path", type=str, default="./results/t2i/image.png")
-    parser.add_argument("--lora_path", type=str, default=None)
+    parser.add_argument("--lora_path", type=str, default=None, help="Full path to lora weights")
     parser.add_argument("--width", type=int, default=1360)
     parser.add_argument("--height", type=int, default=768)
     parser.add_argument("--num_inference_steps", type=int, default=4)

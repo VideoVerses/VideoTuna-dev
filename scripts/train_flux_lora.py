@@ -1,6 +1,8 @@
 import os
 import sys
 
+import yaml
+
 sys.path.insert(0, os.getcwd())
 
 import argparse
@@ -21,24 +23,50 @@ from videotuna.third_party.flux.training.state_tracker import StateTracker
 logger = logging.getLogger("SimpleTuner")
 logger.setLevel(environ.get("SIMPLETUNER_LOG_LEVEL", "INFO"))
 
-
-def config_process(config):
-    # add timestamp to the output_dir
-    output_dir = Path(config["--output_dir"])
+def add_timestamp_to_output_dir(output_dir):
     time_str = time.strftime("%Y%m%d%H%M%S")
-
     folder_name = output_dir.stem
     name_list = folder_name.split("_")
     if len(name_list[-1]) == 14:
         folder_name = "_".join(name_list[:-1])
     folder_name = f"{folder_name}_{time_str}"
     output_dir = output_dir.parent / folder_name
-    config["--output_dir"] = str(output_dir)
+    return str(output_dir)
 
+def config_process(config):
+    # add timestamp to the output_dir
+    output_dir = Path(config["--output_dir"])
+    config["--output_dir"] = add_timestamp_to_output_dir(output_dir)
+    # rewrite the config file
     with open(args.config_path, "w") as f:
         json.dump(config, f, indent=4)
     return config
 
+def load_yaml_config(config_path):
+    with open(config_path) as f:
+        config = yaml.safe_load(f)
+    data_config = config["data"]
+    data_config_json = json.dumps(data_config, indent=2)
+    config = config["train"]
+
+    new_config = {}
+    for key, value in config.items():
+        new_key = "--" + key
+        new_config[new_key] = value
+    config = new_config
+    config["--data_backend_config"] = "configs/006_flux/multidatabackend.json"
+
+    return config, data_config_json
+
+def load_json_config(config_path, data_config_path):
+    # load config files
+    with open(config_path) as f:
+        config = json.load(f)
+    with open(data_config_path) as f:
+        data_config = json.load(f)
+    # process config
+    config = config_process(config)
+    return config, data_config
 
 def main(args):
     try:
@@ -51,38 +79,28 @@ def main(args):
             f"\nError: {e}"
         )
     try:
-        # load config files
-        with open(args.config_path) as f:
-            config = json.load(f)
-        with open(args.data_config_path) as f:
-            data_config = json.load(f)
-        # process config
-        config = config_process(config)
-
+        config, data_config = load_json_config(args.config_path, args.data_config_path)
         data_dir = data_config[0]["instance_data_dir"]
         dm = ModelData(data_dir)
         dm.create_dataset()
         dm.setup()
         print("dataset setup done!")
-        train_dataloader = dm.train_dataloader()
-        test_dataloader = dm.test_dataloader()
-        print("loaded dataloaders")
         model = Model()
         model.run()
         print("loaded model")
         trainer = Trainer(
             accelerator="gpu",
             max_epochs=config["--num_train_epochs"],
+            max_steps=config["--max_train_steps"],
             strategy="ddp",
             limit_train_batches=1490,
             logger=False,
         )
         print("loaded Trainer, training...")
-        # print("model params:", list(model.parameters()))
+
         if dist.is_available() and dist.is_initialized():
             dist.barrier()
         trainer.fit(model, datamodule=dm)
-
         print("train finished")
 
     except Exception as e:

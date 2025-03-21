@@ -6,8 +6,8 @@ import pandas as pd
 from PIL import Image
 
 # Step 1: Load Parquet File
-parquet_file_path = "/disk1/xuelei/SimpleTuner_flux/SimpleTuner/VideoTuna-internal/cartoon-blip-captions/data/train-00000-of-00001-dfb0d9df7ebab67e.parquet"  # Replace with your Parquet file path
-output_directory = "/disk1/xuelei/SimpleTuner_flux/SimpleTuner/VideoTuna-internal/cartoon-blip-captions"  # Directory to save the images
+parquet_file_path = "data/train-00000-of-00001-dfb0d9df7ebab67e.parquet"  # Replace with your Parquet file path
+output_directory = "data-res"  # Directory to save the images
 import pandas as pd
 
 # Load the Parquet file into a DataFrame
