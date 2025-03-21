@@ -17,7 +17,7 @@ flow:
     scale_factor: 0.18215
     use_ema: false
     uncond_type: empty_seq
-    monitor: val/loss_simple_ema
+    monitor: train/loss_step
     encoder_type: 2d
     use_scale: true
     scale_b: 0.7 # adapt to videocrafter-v2
@@ -103,14 +103,6 @@ train:
           video_length: 16
           frame_interval: 3
           train: True
-      validation:
-        target: videotuna.data.datasets.DatasetFromCSV
-        params:
-          csv_path: Dataset/ToyDataset/toydataset.csv
-          resolution: [320, 512]
-          video_length: 16
-          frame_interval: 3
-          train: False
 
   lightning:
     trainer:
@@ -127,14 +119,18 @@ train:
           max_images: 6
           to_local: True # save videos into files
           log_images_kwargs:
-            unconditional_guidance_scale: 12 # need this, otherwise it is grey
-      metrics_over_trainsteps_checkpoint:
-        target: pytorch_lightning.callbacks.ModelCheckpoint
+            unconditional_guidance_scale: 12.0 # need this, otherwise it is grey
+      model_checkpoint:
+        target: videotuna.utils.callbacks.VideoTunaModelCheckpoint
         params:
-          filename: "{epoch:06}-{step:09}"
+          filename: "{epoch:03}-{step:09}"
+          save_only_selected_model: True
+          selected_model: ["denoiser"]
           save_weights_only: False
-          every_n_epochs: 300
-          every_n_train_steps: null
+          save_on_train_epoch_end: False
+          save_last: True
+          every_n_epochs: 0
+          every_n_train_steps: 1000
 
 inference:
   mode: t2v

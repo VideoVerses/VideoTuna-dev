@@ -6,12 +6,40 @@ from omegaconf import OmegaConf
 from pathlib import Path
 from typing import Union
 
+from pytorch_lightning import Trainer
+from videotuna.utils.lightning_utils import add_trainer_args_to_parser
 
-MANDATORY_ARGS = ["mode", "savedir", "seed", "height", "width", "fps", "n_samples_prompt", "bs", "ddim_steps", "ddim_eta", "unconditional_guidance_scale", "ckpt_path"]
+
+MANDATORY_INFERENCE_ARGS = ["mode", "savedir", "seed", "height", "width", "fps", "n_samples_prompt", "bs", "ddim_steps", "ddim_eta", "unconditional_guidance_scale", "ckpt_path"]
 
 
+def prepare_train_args(parser: argparse.Namespace):
+    """
+    Prepare the arguments by updating the config with the command line arguments.
 
-def prepare_args(args: argparse.Namespace, config: OmegaConf):
+    :param parser: The command line arguments.
+    :param config: The config object.
+    :return: The updated args, config object.
+    """
+
+    parser = add_trainer_args_to_parser(Trainer, parser)
+
+    args, unknown = parser.parse_known_args()
+
+    # load yaml config: "flow" | "train" | "inference"
+    configs = [OmegaConf.load(cfg) for cfg in args.base]
+    cli = OmegaConf.from_dotlist(unknown)
+    config = OmegaConf.merge(*configs, cli)
+
+    if args.ckpt is not None:
+        config["flow"]["pretrained_checkpoint"] = args.ckpt
+    if args.lorackpt is not None:
+        config["flow"]["params"]["lora_args"]["lora_ckpt"] = args.lorackpt
+
+    return args, config
+
+
+def prepare_inference_args(args: argparse.Namespace, config: OmegaConf):
     """
     Prepare the arguments by updating the config with the command line arguments.
 
@@ -26,7 +54,7 @@ def prepare_args(args: argparse.Namespace, config: OmegaConf):
             inference_config[k] = v
         
         # update the config with the command line arguments
-        if k in MANDATORY_ARGS and v is not None:
+        if k in MANDATORY_INFERENCE_ARGS and v is not None:
             inference_config[k] = v
 
     check_args(inference_config)
@@ -45,7 +73,7 @@ def check_args(inference_config: OmegaConf):
     :param inference_config: The inferenceconfig object.
     """
     for k, v in inference_config.items():
-        if k in MANDATORY_ARGS and v is None:
+        if k in MANDATORY_INFERENCE_ARGS and v is None:
             raise ValueError(f"The argument {k} is mandatory but not provided.")
 
 

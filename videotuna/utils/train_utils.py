@@ -64,7 +64,7 @@ def get_trainer_callbacks(lightning_config, config, logdir, ckptdir, logger):
                 "save_last": True,
             },
         },
-        "batch_logger": {
+        "image_logger": {
             "target": "videotuna.utils.callbacks.ImageLogger",
             "params": {
                 "save_dir": logdir,
@@ -81,31 +81,12 @@ def get_trainer_callbacks(lightning_config, config, logdir, ckptdir, logger):
     }
 
     ## optional setting for saving checkpoints
-    monitor_metric = check_config_attribute(config.model.params, "monitor")
-    if monitor_metric is not None:
-        mainlogger.info(f"Monitoring {monitor_metric} as checkpoint metric.")
-        default_callbacks_cfg["model_checkpoint"]["params"]["monitor"] = monitor_metric
-        default_callbacks_cfg["model_checkpoint"]["params"]["save_top_k"] = 3
-        default_callbacks_cfg["model_checkpoint"]["params"]["mode"] = "min"
-
-    if "metrics_over_trainsteps_checkpoint" in lightning_config.callbacks:
-        mainlogger.info(
-            "Caution: Saving checkpoints every n train steps without deleting. This might require some free space."
-        )
-        default_metrics_over_trainsteps_ckpt_dict = {
-            "metrics_over_trainsteps_checkpoint": {
-                "target": "pytorch_lightning.callbacks.ModelCheckpoint",
-                "params": {
-                    "dirpath": os.path.join(ckptdir, "trainstep_checkpoints"),
-                    "filename": "{epoch}-{step}",
-                    "verbose": True,
-                    "save_top_k": -1,
-                    "every_n_train_steps": 10000,
-                    "save_weights_only": True,
-                },
-            }
-        }
-        default_callbacks_cfg.update(default_metrics_over_trainsteps_ckpt_dict)
+    # monitor_metric = check_config_attribute(config.flow.params, "monitor")
+    # if monitor_metric is not None:
+    #     mainlogger.info(f"Monitoring {monitor_metric} as checkpoint metric.")
+    #     default_callbacks_cfg["model_checkpoint"]["params"]["monitor"] = monitor_metric
+    #     default_callbacks_cfg["model_checkpoint"]["params"]["save_top_k"] = 3
+    #     default_callbacks_cfg["model_checkpoint"]["params"]["mode"] = "min"
 
     if "callbacks" in lightning_config:
         callbacks_cfg = lightning_config.callbacks

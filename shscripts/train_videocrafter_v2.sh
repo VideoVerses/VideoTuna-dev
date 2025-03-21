@@ -1,17 +1,16 @@
 export TOKENIZERS_PARALLELISM=false
 
-# dependencies
-SDCKPT="checkpoints/stablediffusion/v2-1_512-ema/model.ckpt"        # pretrained checkpoint of stablediffusion 2.1
-VC2CKPT="checkpoints/videocrafter/t2v_v2_512/model.ckpt"  # pretrained checkpoint of videocrafter2
-CONFIG='configs/001_videocrafter2/vc2_t2v_320x512_debug.yaml'             # experiment config: model+data+training
+VC2CKPT="checkpoints/videocrafter/t2v_v2_512/"  # pretrained checkpoint of videocrafter2
+CONFIG='configs/001_videocrafter2/vc2_t2v_320x512_refactor.yaml'             # experiment config: model+data+training
+TRAINEDCKPT="results/train/20250223144241_test/checkpoints/only_trained_model/denoiser-000-000000010.ckpt"  # [Optional] trained checkpoint
 
 # exp saving directory: ${RESROOT}/${CURRENT_TIME}_${EXPNAME}
 RESROOT="results/train"                                             # root directory for saving multiple experiments
-EXPNAME="videocrafter2_320x512"                                     # experiment name 
+EXPNAME="test"                                     # experiment name 
 CURRENT_TIME=$(date +%Y%m%d%H%M%S)                                  # current time
 
 # run
-python scripts/train.py \
+python scripts/train_new.py \
 -t \
 --sdckpt $SDCKPT \
 --ckpt $VC2CKPT \
@@ -19,5 +18,4 @@ python scripts/train.py \
 --logdir $RESROOT \
 --name ${CURRENT_TIME}_${EXPNAME} \
 --devices '0,' \
-lightning.trainer.num_nodes=1 \
---auto_resume
+--trained_ckpt $TRAINEDCKPT

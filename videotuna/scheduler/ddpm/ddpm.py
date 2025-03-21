@@ -17,9 +17,14 @@ from videotuna.lvdm.modules.utils import (
     default,
     disabled_train,
     exists,
-    extract_into_tensor,
     noise_like,
 )
+
+
+def extract_into_tensor(a, t, x_shape):
+    b, *_ = t.shape
+    out = a.to(device=t.device).gather(-1, t)
+    return out.reshape(b, *((1,) * (len(x_shape) - 1)))
 
 
 class DDPM:

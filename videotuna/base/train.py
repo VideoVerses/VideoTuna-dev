@@ -56,30 +56,6 @@ class TrainBase(pl.LightningModule):
         """
         pass
 
-    def on_train_epoch_start(self):
-        pass
-
-    def on_train_batch_start(self):
-        pass
-
-    def on_train_batch_end(self,out, batch, batch_idx):
-        pass
-
-    def on_train_epoch_end(self):
-        pass
-
-    def on_validation_epoch_start(self):
-        pass
-
-    def on_validation_batch_start(self):
-        pass
-
-    def on_validation_batch_end(self, out, batch, batch_idx):
-        pass
-
-    def on_validation_epoch_end(self):
-        pass
-
 
 """
 # There are another hooks in the LightningModule class that can be overridden

@@ -35,6 +35,7 @@ class GenerationFlow(TrainBase, InferenceBase):
                  denoiser_config: Dict[str, Any],
                  scheduler_config: Dict[str, Any],
                  lr_scheduler_config: Dict[str, Any] = None,
+                 trainable_components: Union[str, List[str]] = "denoiser",
                  ):
         """
         Initializes the GenerationFlow class with configurations for different stages and components.
@@ -43,13 +44,15 @@ class GenerationFlow(TrainBase, InferenceBase):
         :param cond_stage_config: Dictionary containing configuration for the conditional stage model.
         :param denoiser_config: Dictionary containing configuration for the denoiser model.
         :param scheduler_config: Dictionary containing configuration for the learning rate scheduler.
+        :param lr_scheduler_config: Dictionary containing configuration for the learning rate scheduler.
+        :param trainable_components: The components of the model that should be trainable.
         """
         super().__init__()
 
         # instantiate the modules
         self.instantiate_first_stage(first_stage_config)
         self.instantiate_cond_stage(cond_stage_config)
-        self.denoiser = instantiate_from_config(denoiser_config)
+        self.instantiate_denoiser(denoiser_config)
         self.scheduler = instantiate_from_config(scheduler_config)
 
         self.first_stage_config = first_stage_config
@@ -57,10 +60,32 @@ class GenerationFlow(TrainBase, InferenceBase):
         self.denoiser_config = denoiser_config
         self.scheduler_config = scheduler_config
 
+        # get the conponents names of the flow
+        self.components = self._get_component_name()
+
         # this is learning rate scheduler
-        self.use_scheduler = lr_scheduler_config is not None
-        if self.use_scheduler:
+        self.use_lr_scheduler = lr_scheduler_config is not None
+        if self.use_lr_scheduler:
             self.lr_scheduler_config = lr_scheduler_config
+        
+        # set trainable components
+        self.set_trainable_components(trainable_components)
+    
+    def _get_component_name(self) -> List[str]:
+        """
+        Get the name of the components of the flow.
+        """
+        class_attr = self.__dict__.keys()
+        parent1_class_attr = TrainBase().__dict__.keys()
+        parent2_class_attr = InferenceBase().__dict__.keys()
+        own_class_attr = set(class_attr) - set(parent1_class_attr) - set(parent2_class_attr)
+
+        components = []
+        for attr in own_class_attr: 
+            if attr.split('_')[-1] == 'config': 
+                components.append('_'.join(attr.split('_')[:-1]))
+        return components
+        
 
     def instantiate_first_stage(self, config: Dict[str, Any]):
         """
@@ -70,7 +95,6 @@ class GenerationFlow(TrainBase, InferenceBase):
         """
         model = instantiate_from_config(config)
         self.first_stage_model = model.eval()
-        # self.first_stage_model.train = disabled_train
         for param in self.first_stage_model.parameters():
             param.requires_grad = False
     
@@ -82,8 +106,18 @@ class GenerationFlow(TrainBase, InferenceBase):
         """
         model = instantiate_from_config(config)
         self.cond_stage_model = model.eval()
-        # self.cond_stage_model.train = disabled_train
         for param in self.cond_stage_model.parameters():
+            param.requires_grad = False
+    
+    def instantiate_denoiser(self, config: Dict[str, Any]):
+        """
+        Instantiates the denoiser model of the generative process.
+
+        :param config: Dictionary containing configuration for the denoiser model.
+        """
+        model = instantiate_from_config(config)
+        self.denoiser = model.eval()
+        for param in self.denoiser.parameters():
             param.requires_grad = False
 
     def configure_optimizers(self):
@@ -139,8 +173,65 @@ class GenerationFlow(TrainBase, InferenceBase):
             raise NotImplementedError
         return lr_scheduler
     
+    def set_trainable_components(
+        self,
+        components: Union[str, List[str]] = "denoiser",
+    ):
+        """
+        Sets the components of the generative model that should be trainable.
+
+        :param components: The components to be set as trainable.
+        """
+        if isinstance(components, str):
+            components = [components]
+
+        for component in components:
+            if component == "first_stage":
+                self.first_stage_model.train()
+                for param in self.first_stage_model.parameters():
+                    param.requires_grad = True
+            elif component == "cond_stage":
+                self.cond_stage_model.train()
+                for param in self.cond_stage_model.parameters():
+                    param.requires_grad = True
+            elif component == "denoiser":
+                self.denoiser.train()
+                for param in self.denoiser.parameters():
+                    param.requires_grad = True
+            else:
+                raise ValueError(f"Invalid component name: {component}")
+
+        print_green(f"Set the following components as trainable: {components}")
+    
+    def load_trained_ckpt(
+        self,
+        ckpt_path: Optional[Union[str, Path]] = None,
+        trained_model_name: Optional[str] = "denoiser",
+    ):
+        """
+        Loads the weights of the specific trained model from a checkpoint file.
+        """
+        assert ckpt_path is not None, "Please provide a valid checkpoint path."
+
+        # check if the component is in the flow
+        ckpt_name = ckpt_path.split('/')[-1].split('-')[0]
+        if ckpt_name in self.components:
+            trained_model_name = ckpt_name
+
+        if trained_model_name == "first_stage":
+            self.first_stage_model = self.load_model(self.first_stage_model, ckpt_path)
+        elif trained_model_name == "cond_stage":
+            self.cond_stage_model = self.load_model(self.cond_stage_model, ckpt_path)
+        elif trained_model_name == "denoiser":
+            self.denoiser = self.load_model(self.denoiser, ckpt_path)
+        else:
+            raise ValueError(f"Invalid trained model name: {trained_model_name}")
+
+        print_green(f"Successfully loaded a trained model {trained_model_name} from checkpoint.")
+    
     def from_pretrained(self,
                         ckpt_path: Optional[Union[str, Path]] = None,
+                        denoiser_ckpt_path: Optional[Union[str, Path]] = None,
                         ignore_missing_ckpts: bool = False) -> None:
         """
         Loads the weights of the model from a checkpoint file.
@@ -177,10 +268,6 @@ class GenerationFlow(TrainBase, InferenceBase):
             print_yellow("Checkpoint of denoiser file not found. Ignoring.")
         else:
             raise FileNotFoundError("Checkpoint of denoiser file not found.")
-    
-    def _freeze_model(self):
-        for name, para in self.denoiser.named_parameters():
-            para.requires_grad = False
     
     @staticmethod
     def load_model(model: nn.Module, ckpt_path: Optional[Union[str, Path]] = None):

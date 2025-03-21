@@ -17,7 +17,7 @@ sys.path.insert(0, os.getcwd())
 sys.path.insert(1, f"{os.getcwd()}/src")
 
 from videotuna.scheduler import DDIMSampler
-from videotuna.utils.args_utils import prepare_args
+from videotuna.utils.args_utils import prepare_inference_args
 from videotuna.utils.common_utils import instantiate_from_config
 
 
@@ -163,7 +163,7 @@ def run_inference(args, gpu_num=1, rank=0, **kwargs):
     # load and prepare config
     assert Path(args.config).exists(), f"Error: config file {args.config} NOT Found!"
     config = OmegaConf.load(args.config)
-    config = prepare_args(args, config)
+    config = prepare_inference_args(args, config)
     inference_config = config.pop("inference", OmegaConf.create())
 
     seed_everything(inference_config.seed)

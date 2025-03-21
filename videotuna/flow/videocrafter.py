@@ -226,8 +226,6 @@ class VideocrafterFlow(GenerationFlow):
         # others 
         if monitor is not None:
             self.monitor = monitor
-        if ckpt_path is not None:
-            self.init_from_ckpt(ckpt_path, ignore_keys=ignore_keys, only_model=load_only_unet)
         
         self.loss_type = loss_type
 
@@ -290,25 +288,35 @@ class VideocrafterFlow(GenerationFlow):
             mainlogger.info("---training for %d-frame conditoning T2V"%(self.frame_cond))
         else:
             self.cond_mask = None
-
-        self.restarted_from_ckpt = False
-        if ckpt_path is not None:
-            self.init_from_ckpt(ckpt_path, ignore_keys, only_model=only_model)
-            self.restarted_from_ckpt = True
                 
         self.logdir = logdir
         self.rand_cond_frame = rand_cond_frame
         self.interp_mode = interp_mode
     
+    @contextmanager
+    def ema_scope(self, context=None):
+        if self.use_ema:
+            self.model_ema.store(self.model.parameters())
+            self.model_ema.copy_to(self.model)
+            if context is not None:
+                mainlogger.info(f"{context}: Switched to EMA weights")
+        try:
+            yield None
+        finally:
+            if self.use_ema:
+                self.model_ema.restore(self.model.parameters())
+                if context is not None:
+                    mainlogger.info(f"{context}: Restored training weights")
+    
     @rank_zero_only
     @torch.no_grad()
     def on_train_batch_start(self, batch, batch_idx, dataloader_idx=None):
         # only for very first batch, reset the self.scale_factor
-        if self.scale_by_std and self.current_epoch == 0 and self.global_step == 0 and batch_idx == 0 and not self.restarted_from_ckpt:
+        if self.scale_by_std and self.current_epoch == 0 and self.global_step == 0 and batch_idx == 0:
             assert self.scale_factor == 1., 'rather not use custom rescaling and std-rescaling simultaneously'
             # set rescale weight to 1./std of encodings
             mainlogger.info("### USING STD-RESCALING ###")
-            x = super().get_input(batch, self.first_stage_key)
+            x = self.get_input(batch, self.first_stage_key)
             x = x.to(self.device)
             encoder_posterior = self.encode_first_stage(x)
             z = self.get_first_stage_encoding(encoder_posterior).detach()
@@ -317,6 +325,10 @@ class VideocrafterFlow(GenerationFlow):
             mainlogger.info(f"setting self.scale_factor to {self.scale_factor}")
             mainlogger.info("### USING STD-RESCALING ###")
             mainlogger.info(f"std={z.flatten().std()}")
+    
+    def on_train_batch_end(self, *args, **kwargs):
+        if self.use_ema:
+            self.model_ema(self.model)
     
     def get_learned_conditioning(self, c):
         if self.cond_stage_forward is None:
@@ -376,10 +388,20 @@ class VideocrafterFlow(GenerationFlow):
         """same as decode_first_stage but without decorator"""
         return self._decode_core(z, **kwargs)
     
+    def get_input(self, batch, k):
+        x = batch[k]
+        """
+        if len(x.shape) == 3:
+            x = x[..., None]
+        x = rearrange(x, 'b h w c -> b c h w')
+        """
+        x = x.to(memory_format=torch.contiguous_format).float()
+        return x
+    
     def get_batch_input(self, batch, random_uncond, return_first_stage_outputs=False, return_original_cond=False, is_imgbatch=False):
         ## image/video shape: b, c, t, h, w
         data_key = 'jpg' if is_imgbatch else self.first_stage_key
-        x = super().get_input(batch, data_key)
+        x = self.get_input(batch, data_key)
         if is_imgbatch:
             ## pack image as video
             #x = x[:,:,None,:,:]
@@ -464,6 +486,28 @@ class VideocrafterFlow(GenerationFlow):
             return x_recon[0]
         else:
             return x_recon
+    
+    def get_loss(self, pred, target, mean=True):
+
+        if target.size()[1] != pred.size()[1]:
+            c = target.size()[1]
+            pred = pred[
+                :, :c, ...
+            ]  # opensora, only previous 4 channels used for calculating loss.
+
+        if self.loss_type == "l1":
+            loss = (target - pred).abs()
+            if mean:
+                loss = loss.mean()
+        elif self.loss_type == "l2":
+            if mean:
+                loss = torch.nn.functional.mse_loss(target, pred)
+            else:
+                loss = torch.nn.functional.mse_loss(target, pred, reduction="none")
+        else:
+            raise NotImplementedError("unknown loss type '{loss_type}'")
+
+        return loss
     
     def p_losses(self, x_start, cond, t, noise=None, **kwargs):
         noise = default(noise, lambda: torch.randn_like(x_start))
@@ -628,7 +672,7 @@ class VideocrafterFlow(GenerationFlow):
 
         if not log_every_t:
             log_every_t = self.log_every_t
-        device = self.scheduler.betas.device
+        device = self.device
         b = shape[0]        
         # sample an initial noise
         if x_T is None:
@@ -698,6 +742,19 @@ class VideocrafterFlow(GenerationFlow):
             samples, intermediates = self.sample(cond=cond, batch_size=batch_size, return_intermediates=True, **kwargs)
 
         return samples, intermediates
+    
+    @torch.no_grad()
+    def validation_step(self, batch, batch_idx):
+        _, loss_dict_no_ema = self.shared_step(batch, random_uncond=False)
+        with self.ema_scope():
+            _, loss_dict_ema = self.shared_step(batch, random_uncond=False)
+            loss_dict_ema = {key + "_ema": loss_dict_ema[key] for key in loss_dict_ema}
+        self.log_dict(
+            loss_dict_no_ema, prog_bar=False, logger=True, on_step=False, on_epoch=True
+        )
+        self.log_dict(
+            loss_dict_ema, prog_bar=False, logger=True, on_step=False, on_epoch=True
+        )
     
     def sample_batch_t2v(
             self,
