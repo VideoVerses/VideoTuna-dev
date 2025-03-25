@@ -69,14 +69,14 @@ class VideoDataset(Dataset):
         if self.image_to_video:
             image = self.instance_videos[index][:1].clone()
             return {
-                "instance_prompt": self.id_token + self.instance_prompts[index],
-                "instance_video": self.instance_videos[index],
-                "instance_image": image,
+                "prompt": self.id_token + self.instance_prompts[index],
+                "video": self.instance_videos[index],
+                "image": image,
             }
         else:
             return {
-                "instance_prompt": self.id_token + self.instance_prompts[index],
-                "instance_video": self.instance_videos[index],
+                "prompt": self.id_token + self.instance_prompts[index],
+                "video": self.instance_videos[index],
             }
 
     def _load_dataset_from_hub(self):
@@ -150,7 +150,7 @@ class VideoDataset(Dataset):
             raise ValueError(
                 "Expected '--video_column' to be a path to a file in `--instance_data_root` containing line-separated paths to video data but found atleast one path that is not a valid file."
             )
-
+        
         return instance_prompts, instance_videos
 
     def _preprocess_data(self):
@@ -188,6 +188,7 @@ class VideoDataset(Dataset):
             frames = frames[: self.max_num_frames]
             selected_num_frames = frames.shape[0]
 
+            # TODO: check this 
             # Choose first (4k + 1) frames as this is how many is required by the VAE
             remainder = (3 + (selected_num_frames % 4)) % 4
             if remainder != 0:
@@ -200,5 +201,6 @@ class VideoDataset(Dataset):
             frames = frames.float()
             frames = torch.stack([train_transforms(frame) for frame in frames], dim=0)
             videos.append(frames.permute(0, 3, 1, 2).contiguous())  # [F, C, H, W]
+            # print(f"video shape end: {frames.shape}")
         return videos
 
