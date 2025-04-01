@@ -26,6 +26,16 @@ def check_istarget(name, para_list):
             return True
     return istarget
 
+def get_dtype_from_str(dtype_str):
+    import torch
+    dtype_map = {
+        "float16": torch.float16,
+        "float32": torch.float32,
+        "float64": torch.float64,
+        "bfloat16": torch.bfloat16
+    }
+    return dtype_map.get(dtype_str, torch.float32)  # 默认返回float32
+
 
 def instantiate_from_config(config):
     if not "target" in config:

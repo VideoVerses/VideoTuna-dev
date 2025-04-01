@@ -10,6 +10,11 @@ from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.cli import LightningCLI
 from transformers import logging as transf_logging
 
+import torch
+import pytorch_lightning as pl
+from pytorch_lightning import seed_everything, Trainer
+from pytorch_lightning.cli import LightningCLI
+
 # sys.path.insert(1, os.path.join(sys.path[0], '..'))
 sys.path.insert(0, os.getcwd())
 from videotuna.utils.common_utils import instantiate_from_config
@@ -213,10 +218,20 @@ if __name__ == "__main__":
         instantiate_from_config(callbacks_cfg[k]) for k in callbacks_cfg
     ]
     strategy_cfg = get_trainer_strategy(lightning_config)
-    trainer_kwargs["strategy"] = (
-        strategy_cfg
-        if type(strategy_cfg) == str
-        else instantiate_from_config(strategy_cfg)
+    # trainer_kwargs["strategy"] = strategy_cfg if type(strategy_cfg) == str else instantiate_from_config(strategy_cfg)
+    # for fsdp
+    from torch.distributed.fsdp import MixedPrecision
+    fp16_policy = MixedPrecision(
+        param_dtype=torch.float16,
+        reduce_dtype=torch.float16,
+        buffer_dtype=torch.float16
+    )
+    trainer_kwargs["strategy"] = pl.strategies.FSDPStrategy(
+        sharding_strategy="HYBRID_SHARD",
+        state_dict_type="full",
+        timeout=datetime.timedelta(hours=1),
+        device_mesh=(4,1),
+        mixed_precision=fp16_policy,
     )
     trainer_kwargs["sync_batchnorm"] = False
 
@@ -240,6 +255,7 @@ if __name__ == "__main__":
     # merge args for trainer
     print(f"trainer_kwargs: {trainer_kwargs}")
     trainer = Trainer(**trainer_config, **trainer_kwargs)
+
 
     ## allow checkpointing via USR1
     def melk(*args, **kwargs):
