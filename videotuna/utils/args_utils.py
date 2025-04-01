@@ -92,9 +92,10 @@ def process_savedir(savedir: str):
 
     # remove empty directories
     parent_dir = Path(savedir).parent
-    for child in parent_dir.iterdir():
-        if child.is_dir() and not any(child.iterdir()):
-            child.rmdir()
+    if parent_dir.is_dir():
+        for child in parent_dir.iterdir():
+            if child.is_dir() and not any(child.iterdir()):
+                child.rmdir()
     
     # create the savedir
     Path(savedir).mkdir(parents=True, exist_ok=True)
