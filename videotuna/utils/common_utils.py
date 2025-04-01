@@ -34,7 +34,7 @@ def instantiate_from_config(config):
         elif config == "__is_unconditional__":
             return None
         raise KeyError("Expected key `target` to instantiate.")
-    if "diffusers" in config["target"] or config["target"].startswith("transformers"):
+    if "diffusers" in config["target"] or config["target"].startswith("transformers") or config.get("use_from_pretrained", False):
         return get_obj_from_str(config["target"]).from_pretrained(
             **config.get("params", dict())
         )

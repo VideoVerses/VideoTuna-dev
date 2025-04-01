@@ -1,0 +1,67 @@
+flow:
+  target: videotuna.flow.wanvideo.WanVideoModelFlow
+  params:
+    task: "t2v-14B"                   # The task to run (choices from WAN_CONFIGS.keys())
+    ckpt_dir: "/project/llmsvgen/songsong/checkpoints/wan/Wan2.1-T2V-14B"                    # The path to the checkpoint directory.
+    offload_model: true               # Whether to offload the model to CPU after each model forward.
+    ulysses_size: 1                   # The size of the ulysses parallelism in DiT.
+    ring_size: 1                      # The size of the ring attention parallelism in DiT.
+    t5_fsdp: false                    # Whether to use FSDP for T5.
+    t5_cpu: false                     # Whether to place T5 model on CPU.
+    dit_fsdp: false                   # Whether to use FSDP for DiT.
+    save_file: null                   # The file to save the generated image or video to.
+    use_prompt_extend: false          # Whether to use prompt extend.
+    prompt_extend_method: "local_qwen" # The prompt extend method to use (choices: dashscope, local_qwen)
+    prompt_extend_model: null         # The prompt extend model to use.
+    prompt_extend_target_lang: "zh"   # The target language of prompt extend (choices: zh, en)
+    base_seed: -1                     # The seed to use for generating the image or video
+
+
+    scheduler_config: __is_first_stage__
+
+    denoiser_config:
+      target: videotuna.wan.wan.modules.model.WanModel
+      use_from_pretrained: True
+      params:
+        pretrained_model_name_or_path: /project/llmsvgen/songsong/VideoTuna-dev/checkpoints/wan/Wan2.1-T2V-14B
+
+    first_stage_config:
+      target: videotuna.wan.wan.modules.vae.WanVAE_
+      params:
+        dim: 96
+        z_dim: 16
+        dim_mult: [1, 2, 4, 4]
+        num_res_blocks: 2
+        attn_scales: []
+        temperal_downsample: [False, True, True]
+        dropout: 0.0
+
+    cond_stage_config:
+      target: videotuna.wan.wan.modules.t5.umt5_xxl
+      params:
+        encoder_only: True
+        return_tokenizer: False
+        dtype: bfloat16
+
+inference:
+  mode: t2v
+  savedir: results/t2v/videocrafter2
+  seed: 42
+  height: 320
+  width: 512
+  fps: 28
+  n_samples_prompt: 3
+  bs: 2
+  ddim_steps: 1
+  ddim_eta: 1.0
+  unconditional_guidance_scale: 12.0
+
+  image: null                       # The image to generate the video from.
+  prompt: null                      # The prompt to generate the image or video from.
+
+  sample_solver: "unipc"            # The solver used to sample (choices: unipc, dpm++)
+  sample_steps: 50                # The sampling steps.
+  sample_shift: 5.0                # Sampling shift factor for flow matching schedulers.
+  sample_guide_scale: 5.0           # Classifier free guidance scale.
+  size: "832*480"                  # The area (width*height) of the generated video (choices from SIZE_CONFIGS.keys())
+  frame_num: 81                   # How many frames to sample from a image or video. The number should be 4n+1.
