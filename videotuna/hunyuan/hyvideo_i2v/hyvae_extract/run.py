@@ -15,7 +15,7 @@ from dataset import VideoDataset, MultiBucketDataset, split_video_urls
 import json
 import glob
 from omegaconf import OmegaConf
-from videotuna.hyvideo_i2v.vae import load_vae
+from hyvideo.vae import load_vae
 
 DEVICE = "cuda"
 DTYPE = torch.float16

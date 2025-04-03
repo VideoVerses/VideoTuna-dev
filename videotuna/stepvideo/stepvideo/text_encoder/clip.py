@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from transformers import BertModel, BertTokenizer
 import os
-from stepvideo.utils import with_empty_init
+from videotuna.stepvideo.stepvideo.utils import with_empty_init
 
 class HunyuanClip(nn.Module):
     """

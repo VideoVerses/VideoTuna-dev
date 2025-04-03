@@ -312,12 +312,11 @@ class HunyuanVideoPipeline(DiffusionPipeline):
             if isinstance(self, TextualInversionLoaderMixin):
                 prompt = self.maybe_convert_prompt(prompt, text_encoder.tokenizer)
 
-            ##ss
-            text_inputs, processed_images = text_encoder.text2tokens(prompt, data_type=data_type, semantic_images=semantic_images)
+            text_inputs = text_encoder.text2tokens(prompt, data_type=data_type)
 
             if clip_skip is None:
                 prompt_outputs = text_encoder.encode(
-                    text_inputs, data_type=data_type, semantic_images=processed_images, device=device
+                    text_inputs, data_type=data_type, semantic_images=semantic_images, device=device
                 )
                 prompt_embeds = prompt_outputs.hidden_state
             else:
@@ -325,7 +324,7 @@ class HunyuanVideoPipeline(DiffusionPipeline):
                     text_inputs,
                     output_hidden_states=True,
                     data_type=data_type,
-                    semantic_images=processed_images,
+                    semantic_images=semantic_images,
                     device=device,
                 )
                 # Access the `hidden_states` first, that contains a tuple of
@@ -399,16 +398,15 @@ class HunyuanVideoPipeline(DiffusionPipeline):
                 )
 
             # max_length = prompt_embeds.shape[1]
-            ##ss
+            uncond_input = text_encoder.text2tokens(uncond_tokens, data_type=data_type)
+
             if semantic_images is not None:
                 uncond_image = [black_image(img.size[0], img.size[1]) for img in semantic_images]
             else:
                 uncond_image = None
 
-            uncond_input, processed_uncond_images = text_encoder.text2tokens(uncond_tokens, data_type=data_type, semantic_images=uncond_image)
-
             negative_prompt_outputs = text_encoder.encode(
-                uncond_input, data_type=data_type, semantic_images=processed_uncond_images, device=device
+                uncond_input, data_type=data_type, semantic_images=uncond_image, device=device
             )
             negative_prompt_embeds = negative_prompt_outputs.hidden_state
 

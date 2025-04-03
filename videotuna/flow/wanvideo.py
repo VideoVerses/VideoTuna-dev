@@ -30,7 +30,7 @@ EXAMPLE_PROMPT = {
         "prompt":
             "Summer beach vacation style, a white cat wearing sunglasses sits on a surfboard. The fluffy-furred feline gazes directly at the camera with a relaxed expression. Blurred beach scenery forms the background featuring crystal-clear waters, distant green hills, and a blue sky dotted with white clouds. The cat assumes a naturally relaxed posture, as if savoring the sea breeze and warm sunlight. A close-up shot highlights the feline's intricate details and the refreshing atmosphere of the seaside.",
         "image":
-            "examples/i2v_input.JPG",
+            "inputs/i2v/576x1024/i2v_input.JPG",
     },
 }
 
@@ -47,6 +47,7 @@ class WanVideoModelFlow(GenerationFlow):
         cond_stage_config: Dict[str, Any],
         denoiser_config: Dict[str, Any],
         scheduler_config: Dict[str, Any],
+        cond_stage_2_config: Dict[str, Any] = None,
         lr_scheduler_config: Optional[Dict[str, Any]] = None,
         task: str = "t2v-14B",             # choices: list(WAN_CONFIGS.keys())
         ckpt_dir: Optional[str] = None,    # Path to the checkpoint directory
@@ -56,7 +57,6 @@ class WanVideoModelFlow(GenerationFlow):
         t5_fsdp: bool = False,             # Whether to use FSDP for T5
         t5_cpu: bool = False,              # Whether to place T5 model on CPU
         dit_fsdp: bool = False,            # Whether to use FSDP for DiT
-        save_file: Optional[str] = None,   # File path to save the generated media
         use_prompt_extend: bool = False,   # Whether to use prompt extend
         prompt_extend_method: str = "local_qwen",  # choices: ["dashscope", "local_qwen"]
         prompt_extend_model: Optional[str] = None,  # The prompt extend model to use
@@ -65,11 +65,13 @@ class WanVideoModelFlow(GenerationFlow):
         *args, **kwargs
     ):
         super().__init__(
-            first_stage_config,
-            cond_stage_config,
-            denoiser_config,
-            scheduler_config,
-            lr_scheduler_config,
+            first_stage_config=first_stage_config,
+            cond_stage_config=cond_stage_config,
+            denoiser_config=denoiser_config,
+            scheduler_config=scheduler_config,
+            cond_stage_2_config=cond_stage_2_config,
+            lr_scheduler_config=lr_scheduler_config,
+            trainable_components=[]
         )
 
         self.task = task
@@ -88,7 +90,7 @@ class WanVideoModelFlow(GenerationFlow):
 
         if offload_model is None:
             offload_model = False if world_size > 1 else True
-            logging.info(
+            mainlogger.info(
                 f"offload_model is not specified, set to {offload_model}.")
         if world_size > 1:
             torch.cuda.set_device(local_rank)
@@ -135,8 +137,8 @@ class WanVideoModelFlow(GenerationFlow):
         if ulysses_size > 1:
             assert cfg.num_heads % ulysses_size == 0, f"`{cfg.num_heads=}` cannot be divided evenly by `{ulysses_size=}`."
 
-        logging.info(f"Generation job args: {args}")
-        logging.info(f"Generation model config: {cfg}")
+        mainlogger.info(f"Generation job args: {args}")
+        mainlogger.info(f"Generation model config: {cfg}")
 
         if dist.is_initialized():
             base_seed = [base_seed] if rank == 0 else [None]
@@ -145,7 +147,7 @@ class WanVideoModelFlow(GenerationFlow):
         
 
         if "t2v" in task or "t2i" in task:
-            logging.info("Creating WanT2V pipeline.")
+            mainlogger.info("Creating WanT2V pipeline.")
             self.wan_t2v = wan.WanT2V(
                 config=cfg,
                 checkpoint_dir=ckpt_dir,
@@ -160,7 +162,7 @@ class WanVideoModelFlow(GenerationFlow):
                 denoiser=self.denoiser
             )
         else:
-            logging.info("Creating WanI2V pipeline.")
+            mainlogger.info("Creating WanI2V pipeline.")
             self.wan_i2v = wan.WanI2V(
                 config=cfg,
                 checkpoint_dir=ckpt_dir,
@@ -170,6 +172,10 @@ class WanVideoModelFlow(GenerationFlow):
                 dit_fsdp=dit_fsdp,
                 use_usp=(ulysses_size > 1 or ring_size > 1),
                 t5_cpu=t5_cpu,
+                first_stage_model=self.first_stage_model,
+                cond_stage_model=self.cond_stage_model,
+                cond_stage_2_model=self.cond_stage_2_model,
+                denoiser=self.denoiser
             )
         
     
@@ -187,21 +193,22 @@ class WanVideoModelFlow(GenerationFlow):
         device = local_rank
         
         prompt = None
+        image = None
         if "t2v" in self.task or "t2i" in self.task:
             if prompt is None:
                 prompt = EXAMPLE_PROMPT[self.task]["prompt"]
-            logging.info(f"Input prompt: {prompt}")
+            mainlogger.info(f"Input prompt: {prompt}")
             if self.use_prompt_extend:
-                logging.info("Extending prompt ...")
+                mainlogger.info("Extending prompt ...")
                 if rank == 0:
                     prompt_output = self.prompt_expander(
                         prompt,
                         tar_lang=self.prompt_extend_target_lang,
                         seed=self.base_seed)
                     if prompt_output.status == False:
-                        logging.info(
+                        mainlogger.info(
                             f"Extending prompt failed: {prompt_output.message}")
-                        logging.info("Falling back to original prompt.")
+                        mainlogger.info("Falling back to original prompt.")
                         input_prompt = prompt
                     else:
                         input_prompt = prompt_output.prompt
@@ -211,9 +218,9 @@ class WanVideoModelFlow(GenerationFlow):
                 if dist.is_initialized():
                     dist.broadcast_object_list(input_prompt, src=0)
                 prompt = input_prompt[0]
-                logging.info(f"Extended prompt: {prompt}")
+                mainlogger.info(f"Extended prompt: {prompt}")
 
-            logging.info(
+            mainlogger.info(
                 f"Generating {'image' if 't2i' in self.task else 'video'} ...")
             video = self.wan_t2v.generate(
                 prompt,
@@ -231,12 +238,12 @@ class WanVideoModelFlow(GenerationFlow):
                 prompt = EXAMPLE_PROMPT[self.task]["prompt"]
             if image is None:
                 image = EXAMPLE_PROMPT[self.task]["image"]
-            logging.info(f"Input prompt: {prompt}")
-            logging.info(f"Input image: {image}")
+            mainlogger.info(f"Input prompt: {prompt}")
+            mainlogger.info(f"Input image: {image}")
 
             img = Image.open(image).convert("RGB")
             if self.use_prompt_extend:
-                logging.info("Extending prompt ...")
+                mainlogger.info("Extending prompt ...")
                 if rank == 0:
                     prompt_output = self.prompt_expander(
                         prompt,
@@ -244,9 +251,9 @@ class WanVideoModelFlow(GenerationFlow):
                         image=img,
                         seed=self.base_seed)
                     if prompt_output.status == False:
-                        logging.info(
+                        mainlogger.info(
                             f"Extending prompt failed: {prompt_output.message}")
-                        logging.info("Falling back to original prompt.")
+                        mainlogger.info("Falling back to original prompt.")
                         input_prompt = prompt
                     else:
                         input_prompt = prompt_output.prompt
@@ -256,19 +263,19 @@ class WanVideoModelFlow(GenerationFlow):
                 if dist.is_initialized():
                     dist.broadcast_object_list(input_prompt, src=0)
                 prompt = input_prompt[0]
-                logging.info(f"Extended prompt: {prompt}")
+                mainlogger.info(f"Extended prompt: {prompt}")
 
 
-            logging.info("Generating video ...")
+            mainlogger.info("Generating video ...")
             video = self.wan_i2v.generate(
                 prompt,
                 img,
-                max_area=MAX_AREA_CONFIGS[size],
-                frame_num=frame_num,
-                shift=sample_shift,
-                sample_solver=sample_solver,
-                sampling_steps=sample_steps,
-                guide_scale=sample_guide_scale,
+                max_area=MAX_AREA_CONFIGS[args['size']],
+                frame_num=args['frame_num'],
+                shift=args['sample_shift'],
+                sample_solver=args['sample_solver'],
+                sampling_steps=args['sample_steps'],
+                guide_scale=args['sample_guide_scale'],
                 seed=self.base_seed,
                 offload_model=self.offload_model)
 
@@ -282,7 +289,7 @@ class WanVideoModelFlow(GenerationFlow):
                 save_file = f"{self.task}_{size.replace('*','x') if sys.platform=='win32' else args['size']}_{self.ulysses_size}_{self.ring_size}_{formatted_prompt}_{formatted_time}" + suffix
 
             if "t2i" in self.task:
-                logging.info(f"Saving generated image to {save_file}")
+                mainlogger.info(f"Saving generated image to {save_file}")
                 cache_image(
                     tensor=video.squeeze(1)[None],
                     save_file=save_file,
@@ -290,7 +297,7 @@ class WanVideoModelFlow(GenerationFlow):
                     normalize=True,
                     value_range=(-1, 1))
             else:
-                logging.info(f"Saving generated video to {save_file}")
+                mainlogger.info(f"Saving generated video to {save_file}")
                 cache_video(
                     tensor=video[None],
                     save_file=save_file,
@@ -298,7 +305,7 @@ class WanVideoModelFlow(GenerationFlow):
                     nrow=1,
                     normalize=True,
                     value_range=(-1, 1))
-        logging.info("Finished.")
+        mainlogger.info("Finished.")
     
 
     def from_pretrained(self,

@@ -1,5 +1,5 @@
 import torch
-from stepvideo.config import parse_args
+from videotuna.stepvideo.stepvideo.config import parse_args
 import os
 
 
@@ -10,10 +10,10 @@ accepted_version = {
 }
 
 try:
-    args = parse_args()
+    #args = parse_args()
     version = '.'.join(torch.__version__.split('.')[:2])
     if version in accepted_version:
-        torch.ops.load_library(os.path.join(args.model_dir, f'lib/{accepted_version[version]}'))
+        torch.ops.load_library(os.path.join("/project/llmsvgen/songsong/DiffSynth-Studio/models/stepfun-ai/stepvideo-t2v", f'lib/{accepted_version[version]}'))
     else:
         raise ValueError("Not supported torch version for liboptimus")
 except Exception as err:

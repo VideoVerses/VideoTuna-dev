@@ -34,6 +34,7 @@ class GenerationFlow(TrainBase, InferenceBase):
                  cond_stage_config: Dict[str, Any],
                  denoiser_config: Dict[str, Any],
                  scheduler_config: Dict[str, Any],
+                 cond_stage_2_config: Dict[str, Any] = None,
                  lr_scheduler_config: Dict[str, Any] = None,
                  trainable_components: Union[str, List[str]] = "denoiser",
                  ):
@@ -42,6 +43,7 @@ class GenerationFlow(TrainBase, InferenceBase):
 
         :param first_stage_config: Dictionary containing configuration for the first stage model.
         :param cond_stage_config: Dictionary containing configuration for the conditional stage model.
+        :param cond_stage_2_config: Dictionary containing configuration for the conditional stage model 2, can be none.
         :param denoiser_config: Dictionary containing configuration for the denoiser model.
         :param scheduler_config: Dictionary containing configuration for the learning rate scheduler.
         :param lr_scheduler_config: Dictionary containing configuration for the learning rate scheduler.
@@ -50,18 +52,19 @@ class GenerationFlow(TrainBase, InferenceBase):
         super().__init__()
 
         # instantiate the modules
+        self.components = []
         self.instantiate_first_stage(first_stage_config)
         self.instantiate_cond_stage(cond_stage_config)
+        self.instantiate_cond_stage_2(cond_stage_2_config)
         self.instantiate_denoiser(denoiser_config)
         self.scheduler = instantiate_from_config(scheduler_config)
+        self.components.append('scheduler')
 
         self.first_stage_config = first_stage_config
         self.cond_stage_config = cond_stage_config
+        self.cond_stage_2_config = cond_stage_2_config
         self.denoiser_config = denoiser_config
         self.scheduler_config = scheduler_config
-
-        # get the conponents names of the flow
-        self.components = self._get_component_name()
 
         # this is learning rate scheduler
         self.use_lr_scheduler = lr_scheduler_config is not None
@@ -70,21 +73,6 @@ class GenerationFlow(TrainBase, InferenceBase):
         
         # set trainable components
         self.set_trainable_components(trainable_components)
-    
-    def _get_component_name(self) -> List[str]:
-        """
-        Get the name of the components of the flow.
-        """
-        class_attr = self.__dict__.keys()
-        parent1_class_attr = TrainBase().__dict__.keys()
-        parent2_class_attr = InferenceBase().__dict__.keys()
-        own_class_attr = set(class_attr) - set(parent1_class_attr) - set(parent2_class_attr)
-
-        components = []
-        for attr in own_class_attr: 
-            if attr.split('_')[-1] == 'config': 
-                components.append('_'.join(attr.split('_')[:-1]))
-        return components
         
 
     def instantiate_first_stage(self, config: Dict[str, Any]):
@@ -97,6 +85,7 @@ class GenerationFlow(TrainBase, InferenceBase):
         self.first_stage_model = model.eval()
         for param in self.first_stage_model.parameters():
             param.requires_grad = False
+        self.components.append('first_stage_model')
     
     def instantiate_cond_stage(self, config: Dict[str, Any]):
         """
@@ -108,6 +97,21 @@ class GenerationFlow(TrainBase, InferenceBase):
         self.cond_stage_model = model.eval()
         for param in self.cond_stage_model.parameters():
             param.requires_grad = False
+        self.components.append('cond_stage_model')
+        
+    def instantiate_cond_stage_2(self, config: Dict[str, Any]):
+        """
+        Instantiates the conditional stage model of the generative process.
+
+        :param config: Dictionary containing configuration for the conditional stage model.
+        """
+        self.cond_stage_2_model = None
+        if config is not None:
+            model = instantiate_from_config(config)
+            self.cond_stage_2_model = model.eval()
+            for param in self.cond_stage_2_model.parameters():
+                param.requires_grad = False
+            self.components.append('cond_stage_2_model')
     
     def instantiate_denoiser(self, config: Dict[str, Any]):
         """
@@ -119,6 +123,7 @@ class GenerationFlow(TrainBase, InferenceBase):
         self.denoiser = model.eval()
         for param in self.denoiser.parameters():
             param.requires_grad = False
+        self.components.append('denoiser')
 
     def configure_optimizers(self):
         """
@@ -186,21 +191,13 @@ class GenerationFlow(TrainBase, InferenceBase):
             components = [components]
 
         for component in components:
-            if component == "first_stage":
-                self.first_stage_model.train()
-                for param in self.first_stage_model.parameters():
-                    param.requires_grad = True
-            elif component == "cond_stage":
-                self.cond_stage_model.train()
-                for param in self.cond_stage_model.parameters():
-                    param.requires_grad = True
-            elif component == "denoiser":
-                self.denoiser.train()
-                for param in self.denoiser.parameters():
-                    param.requires_grad = True
-            else:
+            model = getattr(self, component)
+            if model is None:
                 raise ValueError(f"Invalid component name: {component}")
-
+            model.train()
+            for param in self.first_stage_model.parameters():
+                param.requires_grad = True
+                
         print_green(f"Set the following components as trainable: {components}")
     
     def load_trained_ckpt(
@@ -268,6 +265,46 @@ class GenerationFlow(TrainBase, InferenceBase):
             print_yellow("Checkpoint of denoiser file not found. Ignoring.")
         else:
             raise FileNotFoundError("Checkpoint of denoiser file not found.")
+    
+
+    def enable_vram_management(self):
+        self = self.cuda()
+    
+
+    def enable_cpu_offload(self):
+        self.cpu_offload = True
+
+
+    def load_models_to_device(self, loadmodel_names=[]):
+        skip_components = ['scheduler']
+        # only load models to device if cpu_offload is enabled
+        if not self.cpu_offload:
+            return
+        # offload the unneeded models to cpu
+        for model_name in self.components:
+            if model_name in skip_components:
+                continue
+            if model_name not in loadmodel_names:
+                model = getattr(self, model_name)
+                if model is not None:
+                    if hasattr(model, "vram_management_enabled") and model.vram_management_enabled:
+                        for module in model.modules():
+                            if hasattr(module, "offload"):
+                                module.offload()
+                    else:
+                        model.cpu()
+        # load the needed models to device
+        for model_name in loadmodel_names:
+            model = getattr(self, model_name)
+            if model is not None:
+                if hasattr(model, "vram_management_enabled") and model.vram_management_enabled:
+                    for module in model.modules():
+                        if hasattr(module, "onload"):
+                            module.onload()
+                else:
+                    model.to(self.device)
+        # fresh the cuda cache
+        torch.cuda.empty_cache()
     
     @staticmethod
     def load_model(model: nn.Module, ckpt_path: Optional[Union[str, Path]] = None):

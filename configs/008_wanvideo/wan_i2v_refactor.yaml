@@ -1,8 +1,8 @@
 flow:
   target: videotuna.flow.wanvideo.WanVideoModelFlow
   params:
-    task: "t2v-14B"                   # The task to run (choices from WAN_CONFIGS.keys())
-    ckpt_dir: "/project/llmsvgen/songsong/checkpoints/wan/Wan2.1-T2V-14B"                    # The path to the checkpoint directory.
+    task: "i2v-14B"                   # The task to run (choices from WAN_CONFIGS.keys())
+    ckpt_dir: "/project/llmsvgen/songsong/checkpoints/wan/Wan2.1-I2V-14B-480P"                    # The path to the checkpoint directory.
     offload_model: true               # Whether to offload the model to CPU after each model forward.
     ulysses_size: 1                   # The size of the ulysses parallelism in DiT.
     ring_size: 1                      # The size of the ring attention parallelism in DiT.
@@ -23,7 +23,7 @@ flow:
       target: videotuna.wan.wan.modules.model.WanModel
       use_from_pretrained: True
       params:
-        pretrained_model_name_or_path: /project/llmsvgen/songsong/VideoTuna-dev/checkpoints/wan/Wan2.1-T2V-14B
+        pretrained_model_name_or_path: /project/llmsvgen/songsong/VideoTuna-dev/checkpoints/wan/Wan2.1-I2V-14B-480P
 
     first_stage_config:
       target: videotuna.wan.wan.modules.vae.WanVAE_
@@ -42,9 +42,35 @@ flow:
         encoder_only: True
         return_tokenizer: False
         dtype: bfloat16
+      
+    cond_stage_2_config:
+      target: videotuna.wan.wan.modules.clip.XLMRobertaCLIP
+      params:
+        embed_dim: 1024
+        image_size: 224
+        patch_size: 14
+        vision_dim: 1280
+        vision_mlp_ratio: 4
+        vision_heads: 16
+        vision_layers: 32
+        vision_pool: "token"
+        activation: "gelu"
+        vocab_size: 250002
+        max_text_len: 514
+        type_size: 1
+        pad_id: 1
+        text_dim: 1024
+        text_heads: 16
+        text_layers: 24
+        text_post_norm: true
+        text_dropout: 0.1
+        attn_dropout: 0.0
+        proj_dropout: 0.0
+        embedding_dropout: 0.0
 
 inference:
   mode: t2v
+  ckpt_path: ""
   savedir: results/t2v/videocrafter2
   seed: 42
   height: 320

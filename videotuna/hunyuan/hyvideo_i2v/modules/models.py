@@ -515,7 +515,6 @@ class HYVideoDiffusionTransformer(ModelMixin, ConfigMixin):
     @register_to_config
     def __init__(
         self,
-        args: Any,
         patch_size: list = [1, 2, 2],
         in_channels: int = 4,  # Should be VAE.config.latent_channels.
         out_channels: int = None,
@@ -534,6 +533,11 @@ class HYVideoDiffusionTransformer(ModelMixin, ConfigMixin):
         use_attention_mask: bool = True,
         dtype: Optional[torch.dtype] = None,
         device: Optional[torch.device] = None,
+        i2v_condition_type: str = "token_replace",
+        text_states_dim: int = 4096,
+        text_states_dim_2: int = 768,
+        gradient_checkpoint: bool = False,
+        gradient_checkpoint_layers: int = -1,
     ):
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
@@ -544,19 +548,19 @@ class HYVideoDiffusionTransformer(ModelMixin, ConfigMixin):
         self.unpatchify_channels = self.out_channels
         self.guidance_embed = guidance_embed
         self.rope_dim_list = rope_dim_list
-        self.i2v_condition_type = args.i2v_condition_type
+        self.i2v_condition_type = i2v_condition_type
 
         # Text projection. Default to linear projection.
         # Alternative: TokenRefiner. See more details (LI-DiT): http://arxiv.org/abs/2406.11831
         self.use_attention_mask = use_attention_mask
         self.text_projection = text_projection
 
-        self.text_states_dim = args.text_states_dim
-        self.text_states_dim_2 = args.text_states_dim_2
+        self.text_states_dim = text_states_dim
+        self.text_states_dim_2 = text_states_dim_2
 
         # Gradient checkpoint.
-        self.gradient_checkpoint = args.gradient_checkpoint
-        self.gradient_checkpoint_layers = args.gradient_checkpoint_layers
+        self.gradient_checkpoint = gradient_checkpoint
+        self.gradient_checkpoint_layers = gradient_checkpoint_layers
         if self.gradient_checkpoint:
             assert self.gradient_checkpoint_layers <= mm_double_blocks_depth + mm_single_blocks_depth, \
                 f"Gradient checkpoint layers must be less or equal than the depth of the model. " \

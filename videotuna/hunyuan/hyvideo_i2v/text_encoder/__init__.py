@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional, Tuple
 from copy import deepcopy
-
+from omegaconf import DictConfig, OmegaConf
 import torch
 import torch.nn as nn
 from transformers import (
@@ -11,10 +11,8 @@ from transformers import (
     AutoModel,
     LlavaForConditionalGeneration,
     CLIPImageProcessor,
-    AutoProcessor
 )
 from transformers.utils import ModelOutput
-from transformers.image_utils import get_image_size, to_numpy_array
 
 from ..constants import TEXT_ENCODER_PATH, TOKENIZER_PATH
 from ..constants import PRECISION_TO_TYPE
@@ -77,7 +75,6 @@ def load_tokenizer(
         logger.info(f"Loading tokenizer ({tokenizer_type}) from: {tokenizer_path}")
 
     processor = None
-    processor_2 = None
     if tokenizer_type == "clipL":
         tokenizer = CLIPTokenizer.from_pretrained(tokenizer_path, max_length=77)
     elif tokenizer_type == "llm":
@@ -89,11 +86,10 @@ def load_tokenizer(
             tokenizer_path, padding_side=padding_side
         )
         processor = CLIPImageProcessor.from_pretrained(tokenizer_path)
-        processor_2 = AutoProcessor.from_pretrained(tokenizer_path)
     else:
         raise ValueError(f"Unsupported tokenizer type: {tokenizer_type}")
 
-    return tokenizer, tokenizer_path, processor, processor_2
+    return tokenizer, tokenizer_path, processor
 
 
 @dataclass
@@ -144,7 +140,7 @@ class TextEncoder(nn.Module):
     ):
         super().__init__()
         self.text_encoder_type = text_encoder_type
-        self.max_length = None
+        self.max_length = max_length
         self.precision = text_encoder_precision
         self.model_path = text_encoder_path
         self.tokenizer_type = (
@@ -173,7 +169,7 @@ class TextEncoder(nn.Module):
         self.use_template = self.prompt_template is not None
         if self.use_template:
             assert (
-                isinstance(self.prompt_template, dict)
+                (isinstance(self.prompt_template, dict) or isinstance(self.prompt_template, DictConfig))
                 and "template" in self.prompt_template
             ), f"`prompt_template` must be a dictionary with a key 'template', got {self.prompt_template}"
             assert "{}" in str(self.prompt_template["template"]), (
@@ -185,7 +181,7 @@ class TextEncoder(nn.Module):
         if self.use_video_template:
             if self.prompt_template_video is not None:
                 assert (
-                    isinstance(self.prompt_template_video, dict)
+                    (isinstance(self.prompt_template_video, dict) or isinstance(self.prompt_template, DictConfig))
                     and "template" in self.prompt_template_video
                 ), f"`prompt_template_video` must be a dictionary with a key 'template', got {self.prompt_template_video}"
             assert "{}" in str(self.prompt_template_video["template"]), (
@@ -212,7 +208,7 @@ class TextEncoder(nn.Module):
         self.dtype = self.model.dtype
         self.device = self.model.device
 
-        self.tokenizer, self.tokenizer_path, self.processor, self.processor_2 = load_tokenizer(
+        self.tokenizer, self.tokenizer_path, self.processor = load_tokenizer(
             tokenizer_type=self.tokenizer_type,
             tokenizer_path=self.tokenizer_path,
             padding_side="right",
@@ -239,17 +235,13 @@ class TextEncoder(nn.Module):
         else:
             raise TypeError(f"Unsupported template type: {type(template)}")
 
-
-    def text2tokens(self, text, data_type="image", semantic_images=None):
+    def text2tokens(self, text, data_type="image"):
         """
         Tokenize the input text.
 
         Args:
             text (str or list): Input text.
         """
-        if semantic_images is not None:
-            semantic_images = self.processor(semantic_images, return_tensors="pt")["pixel_values"]
-
         tokenize_input_type = "str"
         if self.use_template:
             if data_type == "image":
@@ -272,22 +264,6 @@ class TextEncoder(nn.Module):
             else:
                 raise TypeError(f"Unsupported text type: {type(text)}")
 
-        # if semantic_images is not None:
-        #     prompt_strings = text
-        #     # Replace the image token with the expanded image token sequence
-        #     height, width = get_image_size(to_numpy_array(semantic_images[0]))
-        #     num_image_tokens = (height // self.model.config.vision_config.patch_size) * (
-        #         width // self.model.config.vision_config.patch_size
-        #     ) + 1 #self.processor_2.num_additional_image_tokens
-        #     if self.model.config.vision_feature_select_strategy == "default":
-        #         num_image_tokens -= 1
-
-        #     prompt_strings = []
-        #     for sample in text:
-        #         sample = sample.replace(self.processor_2.image_token, self.processor_2.image_token * num_image_tokens)
-        #         prompt_strings.append(sample)
-        #     text = prompt_strings
-
         kwargs = dict(
             truncation=True,
             max_length=self.max_length,
@@ -301,7 +277,7 @@ class TextEncoder(nn.Module):
                 return_overflowing_tokens=False,
                 return_attention_mask=True,
                 **kwargs,
-            ),semantic_images
+            )
         elif tokenize_input_type == "list":
             return self.tokenizer.apply_chat_template(
                 text,
@@ -309,14 +285,13 @@ class TextEncoder(nn.Module):
                 tokenize=True,
                 return_dict=True,
                 **kwargs,
-            ),semantic_images
+            )
         else:
             raise ValueError(f"Unsupported tokenize_input_type: {tokenize_input_type}")
 
     def encode(
         self,
-        batch_encoding=None,
-        prompt=None,
+        batch_encoding,
         use_attention_mask=None,
         output_hidden_states=False,
         do_sample=None,
@@ -390,12 +365,9 @@ class TextEncoder(nn.Module):
                 )
             return TextEncoderModelOutput(last_hidden_state, attention_mask)
         else:
-            # image_outputs = self.processor(semantic_images, return_tensors="pt")[
-            #     "pixel_values"
-            # ].to(device)
-            
-            image_outputs = semantic_images.to(device)
-    
+            image_outputs = self.processor(semantic_images, return_tensors="pt")[
+                "pixel_values"
+            ].to(device)
             attention_mask = (
                 batch_encoding["attention_mask"].to(device)
                 if use_attention_mask

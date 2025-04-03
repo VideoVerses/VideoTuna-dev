@@ -10,14 +10,14 @@ import PIL.Image
 from typing import Union, Optional, List
 from peft import get_peft_model_state_dict
 
-from videotuna.hyvideo_i2v.modules.posemb_layers import get_nd_rotary_pos_embed
-from videotuna.hyvideo_i2v.vae import AutoencoderKLCausal3D
+from hyvideo.modules.posemb_layers import get_nd_rotary_pos_embed
+from hyvideo.vae import AutoencoderKLCausal3D
 
 from pathlib import Path
 from einops import rearrange
 from PIL import Image
 
-from videotuna.hyvideo_i2v.constants import PRECISION_TO_TYPE
+from hyvideo.constants import PRECISION_TO_TYPE
 from safetensors.torch import load_file
 
 

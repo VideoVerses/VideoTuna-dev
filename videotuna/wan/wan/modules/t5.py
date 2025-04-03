@@ -510,3 +510,4 @@ class T5EncoderModel:
         seq_lens = mask.gt(0).sum(dim=1).long()
         context = self.model(ids, mask)
         return [u[:v] for u, v in zip(context, seq_lens)]
+umt5_xxl

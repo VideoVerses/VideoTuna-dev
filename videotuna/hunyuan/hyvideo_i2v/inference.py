@@ -9,16 +9,16 @@ from loguru import logger
 
 import torch
 import torch.distributed as dist
-from videotuna.hyvideo_i2v.constants import PROMPT_TEMPLATE, NEGATIVE_PROMPT, PRECISION_TO_TYPE, NEGATIVE_PROMPT_I2V
-from videotuna.hyvideo_i2v.vae import load_vae
-from videotuna.hyvideo_i2v.modules import load_model
-from videotuna.hyvideo_i2v.text_encoder import TextEncoder
-from videotuna.hyvideo_i2v.utils.data_utils import align_to, get_closest_ratio, generate_crop_size_list
-from videotuna.hyvideo_i2v.utils.lora_utils import load_lora_for_pipeline
-from videotuna.hyvideo_i2v.modules.posemb_layers import get_nd_rotary_pos_embed
-from videotuna.hyvideo_i2v.modules.fp8_optimization import convert_fp8_linear
-from videotuna.hyvideo_i2v.diffusion.schedulers import FlowMatchDiscreteScheduler
-from videotuna.hyvideo_i2v.diffusion.pipelines import HunyuanVideoPipeline
+from hyvideo.constants import PROMPT_TEMPLATE, NEGATIVE_PROMPT, PRECISION_TO_TYPE, NEGATIVE_PROMPT_I2V
+from hyvideo.vae import load_vae
+from hyvideo.modules import load_model
+from hyvideo.text_encoder import TextEncoder
+from hyvideo.utils.data_utils import align_to, get_closest_ratio, generate_crop_size_list
+from hyvideo.utils.lora_utils import load_lora_for_pipeline
+from hyvideo.modules.posemb_layers import get_nd_rotary_pos_embed
+from hyvideo.modules.fp8_optimization import convert_fp8_linear
+from hyvideo.diffusion.schedulers import FlowMatchDiscreteScheduler
+from hyvideo.diffusion.pipelines import HunyuanVideoPipeline
 import torchvision.transforms as transforms
 from PIL import Image
 import numpy as np

@@ -5,12 +5,24 @@ from colorama import Fore, Style
 from omegaconf import OmegaConf
 from pathlib import Path
 from typing import Union
+import torch
 
 from pytorch_lightning import Trainer
 from videotuna.utils.lightning_utils import add_trainer_args_to_parser
 
 
 MANDATORY_INFERENCE_ARGS = ["mode", "savedir", "seed", "height", "width", "fps", "n_samples_prompt", "bs", "ddim_steps", "ddim_eta", "unconditional_guidance_scale", "ckpt_path"]
+
+
+def resolve_dtype(dtype_str):
+    mapping = {
+        "torch.float16": torch.float16,
+        "torch.float32": torch.float32,
+        "torch.float64": torch.float64,
+        "torch.bfloat16": torch.bfloat16,
+    }
+    return mapping.get(dtype_str)
+OmegaConf.register_new_resolver("dtype_resolver", resolve_dtype)
 
 
 def prepare_train_args(parser: argparse.Namespace):

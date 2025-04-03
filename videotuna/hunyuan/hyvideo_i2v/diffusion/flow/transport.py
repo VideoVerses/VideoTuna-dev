@@ -8,7 +8,7 @@ import torch as th
 from . import path
 from .integrators import ode, sde
 from .utils import mean_flat
-from videotuna.hyvideo_i2v.constants import PRECISION_TO_TYPE
+from videotuna.hunyuan.hyvideo_i2v.constants import PRECISION_TO_TYPE
 
 __all__ = ["ModelType", "PathType", "WeightType", "Transport", "Sampler", "SNRType"]
 

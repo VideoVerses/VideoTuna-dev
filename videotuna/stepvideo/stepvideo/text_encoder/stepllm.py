@@ -16,10 +16,10 @@ from typing import Optional
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from stepvideo.text_encoder.flashattention import FlashSelfAttention
-from stepvideo.modules.model import RMSNorm
-from stepvideo.text_encoder.tokenizer import LLaMaEmbedding, Wrapped_StepChatTokenizer
-from stepvideo.utils import with_empty_init
+from videotuna.stepvideo.stepvideo.text_encoder.flashattention import FlashSelfAttention
+from videotuna.stepvideo.stepvideo.modules.model import RMSNorm
+from videotuna.stepvideo.stepvideo.text_encoder.tokenizer import LLaMaEmbedding, Wrapped_StepChatTokenizer
+from videotuna.stepvideo.stepvideo.utils import with_empty_init
 from safetensors.torch import load_file
 from transformers.modeling_utils import PretrainedConfig, PreTrainedModel
 from einops import rearrange

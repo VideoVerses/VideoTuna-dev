@@ -8,6 +8,7 @@ import sys
 import types
 from contextlib import contextmanager
 from functools import partial
+from typing import Union
 
 import numpy as np
 import torch
@@ -17,10 +18,10 @@ import torchvision.transforms.functional as TF
 from tqdm import tqdm
 
 from .distributed.fsdp import shard_model
-from .modules.clip import CLIPModel
+from .modules.clip import CLIPModel, XLMRobertaCLIP
 from .modules.model import WanModel
-from .modules.t5 import T5EncoderModel
-from .modules.vae import WanVAE
+from .modules.t5 import T5Encoder, T5Decoder, T5Model, T5EncoderModel
+from .modules.vae import WanVAE, WanVAE_
 from .utils.fm_solvers import (FlowDPMSolverMultistepScheduler,
                                get_sampling_sigmas, retrieve_timesteps)
 from .utils.fm_solvers_unipc import FlowUniPCMultistepScheduler
@@ -38,7 +39,10 @@ class WanI2V:
         dit_fsdp=False,
         use_usp=False,
         t5_cpu=False,
-        init_on_cpu=True,
+        first_stage_model: WanVAE_= None ,
+        cond_stage_model: Union[T5Encoder, T5Decoder, T5Model]=None,
+        cond_stage_2_model:XLMRobertaCLIP=None,
+        denoiser: WanModel=None,
     ):
         r"""
         Initializes the image-to-video generation model components.
@@ -73,18 +77,20 @@ class WanI2V:
         self.param_dtype = config.param_dtype
 
         shard_fn = partial(shard_model, device_id=device_id)
-        self.text_encoder = T5EncoderModel(
+        self.text_encoder : T5EncoderModel = T5EncoderModel(
             text_len=config.text_len,
             dtype=config.t5_dtype,
             device=torch.device('cpu'),
             checkpoint_path=os.path.join(checkpoint_dir, config.t5_checkpoint),
             tokenizer_path=os.path.join(checkpoint_dir, config.t5_tokenizer),
             shard_fn=shard_fn if t5_fsdp else None,
+            model=cond_stage_model
         )
 
         self.vae_stride = config.vae_stride
         self.patch_size = config.patch_size
-        self.vae = WanVAE(
+        self.vae: WanVAE = WanVAE(
+            vae=first_stage_model,
             vae_pth=os.path.join(checkpoint_dir, config.vae_checkpoint),
             device=self.device)
 
@@ -93,14 +99,12 @@ class WanI2V:
             device=self.device,
             checkpoint_path=os.path.join(checkpoint_dir,
                                          config.clip_checkpoint),
-            tokenizer_path=os.path.join(checkpoint_dir, config.clip_tokenizer))
+            tokenizer_path=os.path.join(checkpoint_dir, config.clip_tokenizer),
+            model=cond_stage_2_model)
 
-        logging.info(f"Creating WanModel from {checkpoint_dir}")
-        self.model = WanModel.from_pretrained(checkpoint_dir)
+
+        self.model : WanModel = denoiser
         self.model.eval().requires_grad_(False)
-
-        if t5_fsdp or dit_fsdp or use_usp:
-            init_on_cpu = False
 
         if use_usp:
             from xfuser.core.distributed import \
@@ -120,9 +124,6 @@ class WanI2V:
             dist.barrier()
         if dit_fsdp:
             self.model = shard_fn(self.model)
-        else:
-            if not init_on_cpu:
-                self.model.to(self.device)
 
         self.sample_neg_prompt = config.sample_neg_prompt
 

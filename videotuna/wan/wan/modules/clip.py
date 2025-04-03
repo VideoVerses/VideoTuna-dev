@@ -431,88 +431,33 @@ class XLMRobertaCLIP(nn.Module):
         return groups
 
 
-def _clip(pretrained=False,
-          pretrained_name=None,
-          model_cls=XLMRobertaCLIP,
-          return_transforms=False,
-          return_tokenizer=False,
-          tokenizer_padding='eos',
-          dtype=torch.float32,
-          device='cpu',
-          **kwargs):
-    # init a model on device
-    with torch.device(device):
-        model = model_cls(**kwargs)
+def clip_transforms(model, pretrained_name):
+    if 'siglip' in pretrained_name.lower():
+        mean, std = [0.5, 0.5, 0.5], [0.5, 0.5, 0.5]
+    else:
+        mean = [0.48145466, 0.4578275, 0.40821073]
+        std = [0.26862954, 0.26130258, 0.27577711]
 
-    # set device
-    model = model.to(dtype=dtype, device=device)
-    output = (model,)
-
-    # init transforms
-    if return_transforms:
-        # mean and std
-        if 'siglip' in pretrained_name.lower():
-            mean, std = [0.5, 0.5, 0.5], [0.5, 0.5, 0.5]
-        else:
-            mean = [0.48145466, 0.4578275, 0.40821073]
-            std = [0.26862954, 0.26130258, 0.27577711]
-
-        # transforms
-        transforms = T.Compose([
-            T.Resize((model.image_size, model.image_size),
-                     interpolation=T.InterpolationMode.BICUBIC),
-            T.ToTensor(),
-            T.Normalize(mean=mean, std=std)
-        ])
-        output += (transforms,)
-    return output[0] if len(output) == 1 else output
-
-
-def clip_xlm_roberta_vit_h_14(
-        pretrained=False,
-        pretrained_name='open-clip-xlm-roberta-large-vit-huge-14',
-        **kwargs):
-    cfg = dict(
-        embed_dim=1024,
-        image_size=224,
-        patch_size=14,
-        vision_dim=1280,
-        vision_mlp_ratio=4,
-        vision_heads=16,
-        vision_layers=32,
-        vision_pool='token',
-        activation='gelu',
-        vocab_size=250002,
-        max_text_len=514,
-        type_size=1,
-        pad_id=1,
-        text_dim=1024,
-        text_heads=16,
-        text_layers=24,
-        text_post_norm=True,
-        text_dropout=0.1,
-        attn_dropout=0.0,
-        proj_dropout=0.0,
-        embedding_dropout=0.0)
-    cfg.update(**kwargs)
-    return _clip(pretrained, pretrained_name, XLMRobertaCLIP, **cfg)
+    # transforms
+    return T.Compose([
+        T.Resize((model.image_size, model.image_size),
+                    interpolation=T.InterpolationMode.BICUBIC),
+        T.ToTensor(),
+        T.Normalize(mean=mean, std=std)
+    ])
 
 
 class CLIPModel:
 
-    def __init__(self, dtype, device, checkpoint_path, tokenizer_path):
+    def __init__(self, dtype, device, checkpoint_path, tokenizer_path, model):
         self.dtype = dtype
         self.device = device
         self.checkpoint_path = checkpoint_path
         self.tokenizer_path = tokenizer_path
 
         # init model
-        self.model, self.transforms = clip_xlm_roberta_vit_h_14(
-            pretrained=False,
-            return_transforms=True,
-            return_tokenizer=False,
-            dtype=dtype,
-            device=device)
+        self.model = model
+        self.transforms = clip_transforms(model, 'open-clip-xlm-roberta-large-vit-huge-14')
         self.model = self.model.eval().requires_grad_(False)
         logging.info(f'loading {checkpoint_path}')
         self.model.load_state_dict(

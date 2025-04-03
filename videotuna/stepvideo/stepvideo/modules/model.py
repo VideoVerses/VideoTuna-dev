@@ -17,7 +17,7 @@ import os
 from einops import rearrange, repeat
 from tqdm import tqdm
 
-from stepvideo.utils import with_empty_init
+from videotuna.stepvideo.stepvideo.utils import with_empty_init
 
 from diffusers.configuration_utils import ConfigMixin, register_to_config
 from diffusers.models.modeling_utils import ModelMixin

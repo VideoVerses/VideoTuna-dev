@@ -19,6 +19,7 @@ sys.path.insert(1, f"{os.getcwd()}/src")
 from videotuna.scheduler import DDIMSampler
 from videotuna.utils.args_utils import prepare_inference_args
 from videotuna.utils.common_utils import instantiate_from_config
+from videotuna.flow.generation_base import GenerationFlow
 
 
 def get_parser():
@@ -160,22 +161,29 @@ def run_inference(args, gpu_num=1, rank=0, **kwargs):
     """
     Inference t2v/i2v models
     """
-    # load and prepare config
+    # load and replace inference args with user agrgument
     assert Path(args.config).exists(), f"Error: config file {args.config} NOT Found!"
     config = OmegaConf.load(args.config)
     config = prepare_inference_args(args, config)
-    inference_config = config.pop("inference", OmegaConf.create())
 
+    # resolve interpolation first
+    config = OmegaConf.to_container(config, resolve=True)
+    config = OmegaConf.create(config, flags={"allow_objects": True})
+    
+    inference_config = config.pop("inference", OmegaConf.create(flags={"allow_objects": True}))
     seed_everything(inference_config.seed)
 
-    # create flow
-    flow_config = config.pop("flow", OmegaConf.create())
-    flow = instantiate_from_config(flow_config)
+    # 1. create flow
+    # 1.1 init class on meta
+    # 1.2 load weight to cpu
+    # 1.3 vram management (default to cuda)
+    flow_config = config.pop("flow", OmegaConf.create(flags={"allow_objects": True}))
+    flow : GenerationFlow = instantiate_from_config(flow_config)
     flow.from_pretrained(inference_config.ckpt_path)
-    flow = flow.cuda()
+    flow.enable_vram_management()
     flow.eval()
 
-    # flow inference
+    # 2. flow inference
     flow.inference(inference_config)
 
 
