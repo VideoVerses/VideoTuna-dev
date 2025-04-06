@@ -1,6 +1,13 @@
 import importlib
 import os
 from colorama import Fore, Style
+from omegaconf import DictConfig, OmegaConf
+import time
+import psutil
+import subprocess
+import sys
+from functools import wraps
+from loguru import logger
 
 import cv2
 import numpy as np
@@ -36,8 +43,17 @@ def get_dtype_from_str(dtype_str):
     }
     return dtype_map.get(dtype_str, torch.float32)  # 默认返回float32
 
+def get_params(config, resolve=True):
+    params = config.get("params")
+    if params is None:
+        return dict()
 
-def instantiate_from_config(config):
+    if resolve and isinstance(params, DictConfig):
+        return OmegaConf.to_container(params, resolve=True)
+    return params
+
+# resolve will make params dict type rather than DictConfig type
+def instantiate_from_config(config, resolve=True):
     if not "target" in config:
         if config == "__is_first_stage__":
             return None
@@ -46,9 +62,9 @@ def instantiate_from_config(config):
         raise KeyError("Expected key `target` to instantiate.")
     if "diffusers" in config["target"] or config["target"].startswith("transformers") or config.get("use_from_pretrained", False):
         return get_obj_from_str(config["target"]).from_pretrained(
-            **config.get("params", dict())
+            **get_params(config, resolve)
         )
-    return get_obj_from_str(config["target"])(**config.get("params", dict()))
+    return get_obj_from_str(config["target"])(**get_params(config, resolve))
 
 
 def get_obj_from_str(string, reload=False):
@@ -102,3 +118,46 @@ def print_red(text):
 
 def print_yellow(text):
     print(Fore.YELLOW + text + Style.RESET_ALL)
+
+
+def monitor_resources(return_metrics=True):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            process = psutil.Process()
+            start_time = time.time()
+            start_cpu_mem = process.memory_info().rss / 1024 / 1024 / 1024 # GB
+
+            if torch.cuda.is_available():
+                torch.cuda.reset_peak_memory_stats()
+                torch.cuda.synchronize()
+
+            result = func(*args, **kwargs)
+
+            end_time = time.time()
+            end_cpu_mem = process.memory_info().rss / 1024 / 1024 / 1024 # GB
+
+            time_used = end_time - start_time
+            cpu_mem_used = end_cpu_mem - start_cpu_mem
+
+            logger.info(f"Time used: {time_used:.2f} seconds")
+            logger.info(f"CPU memory change: {cpu_mem_used:.2f} GB")
+            gpu_mem_used = None
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+                gpu_mem_used = torch.cuda.max_memory_allocated() / 1024 / 1024 / 1024 # GB
+                logger.info(f"Peak GPU memory used: {gpu_mem_used:.2f} GB")
+
+            if return_metrics:
+                return {
+                    "time_used_sec": round(time_used, 2),
+                    "cpu_mem_used_gb": round(cpu_mem_used, 2),
+                    "gpu_mem_used_gb": round(gpu_mem_used, 2) if gpu_mem_used is not None else None,
+                    "result": result,
+                }
+            else:
+                return result
+
+        return wrapper
+    return decorator
+

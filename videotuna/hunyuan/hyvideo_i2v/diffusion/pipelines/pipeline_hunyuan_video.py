@@ -175,7 +175,9 @@ class HunyuanVideoPipeline(DiffusionPipeline):
         scheduler: KarrasDiffusionSchedulers,
         text_encoder_2: Optional[TextEncoder] = None,
         progress_bar_config: Dict[str, Any] = None,
-        args=None,
+        vae_precision: str = 'fp16',
+        precision: str = 'bf16',
+        disable_autocast: bool = False,
     ):
         super().__init__()
 
@@ -186,7 +188,9 @@ class HunyuanVideoPipeline(DiffusionPipeline):
             self._progress_bar_config = {}
         self._progress_bar_config.update(progress_bar_config)
 
-        self.args = args
+        self.vae_precision = vae_precision
+        self.precision = precision
+        self.disable_autocast = disable_autocast
         # ==========================================================================================
 
         if (
@@ -991,14 +995,14 @@ class HunyuanVideoPipeline(DiffusionPipeline):
             {"generator": generator, "eta": eta},
         )
 
-        target_dtype = PRECISION_TO_TYPE[self.args.precision]
+        target_dtype = PRECISION_TO_TYPE[self.precision]
         autocast_enabled = (
             target_dtype != torch.float32
-        ) and not self.args.disable_autocast
-        vae_dtype = PRECISION_TO_TYPE[self.args.vae_precision]
+        ) and not self.disable_autocast
+        vae_dtype = PRECISION_TO_TYPE[self.vae_precision]
         vae_autocast_enabled = (
             vae_dtype != torch.float32
-        ) and not self.args.disable_autocast
+        ) and not self.disable_autocast
 
         # 7. Denoising loop
         num_warmup_steps = len(timesteps) - num_inference_steps * self.scheduler.order

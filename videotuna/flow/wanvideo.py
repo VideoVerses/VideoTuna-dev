@@ -1,5 +1,6 @@
 import torch
-import logging
+from loguru import logger
+import random
 import os
 import torch.distributed as dist
 from typing import Any, Dict, List, Optional, Union
@@ -7,15 +8,16 @@ from pathlib import Path
 from PIL import Image
 from datetime import datetime
 import sys
+from omegaconf import OmegaConf, DictConfig
 
 from videotuna.flow.generation_base import GenerationFlow
 from videotuna.utils.common_utils import instantiate_from_config
+from videotuna.utils.args_utils import VideoMode
 import videotuna.wan.wan as wan
 from videotuna.wan.wan.configs import WAN_CONFIGS, SIZE_CONFIGS, MAX_AREA_CONFIGS, SUPPORTED_SIZES
 from videotuna.wan.wan.utils.prompt_extend import DashScopePromptExpander, QwenPromptExpander
 from videotuna.wan.wan.utils.utils import cache_video, cache_image, str2bool
 
-mainlogger = logging.getLogger("mainlogger")
 EXAMPLE_PROMPT = {
     "t2v-1.3B": {
         "prompt": "Two anthropomorphic cats in comfy boxing gear and bright gloves fight intensely on a spotlighted stage.",
@@ -49,21 +51,25 @@ class WanVideoModelFlow(GenerationFlow):
         scheduler_config: Dict[str, Any],
         cond_stage_2_config: Dict[str, Any] = None,
         lr_scheduler_config: Optional[Dict[str, Any]] = None,
-        task: str = "t2v-14B",             # choices: list(WAN_CONFIGS.keys())
-        ckpt_dir: Optional[str] = None,    # Path to the checkpoint directory
-        offload_model: Optional[bool] = None,  # Offload model to CPU after each forward pass
-        ulysses_size: int = 1,             # Size of the ulysses parallelism in DiT
-        ring_size: int = 1,                # Size of the ring attention parallelism in DiT
-        t5_fsdp: bool = False,             # Whether to use FSDP for T5
-        t5_cpu: bool = False,              # Whether to place T5 model on CPU
-        dit_fsdp: bool = False,            # Whether to use FSDP for DiT
-        use_prompt_extend: bool = False,   # Whether to use prompt extend
-        prompt_extend_method: str = "local_qwen",  # choices: ["dashscope", "local_qwen"]
-        prompt_extend_model: Optional[str] = None,  # The prompt extend model to use
-        prompt_extend_target_lang: str = "zh",      # choices: ["zh", "en"]
-        base_seed: int = -1,               # Seed for generation
+        task: str = "t2v-14B",            
+        ckpt_path: Optional[str] = None,    
+        offload_model: Optional[bool] = None, 
+        ulysses_size: int = 1,             
+        ring_size: int = 1,               
+        t5_fsdp: bool = False,           
+        t5_cpu: bool = False,             
+        dit_fsdp: bool = False,            
+        use_prompt_extend: bool = False,   
+        prompt_extend_method: str = "local_qwen",  
+        prompt_extend_model: Optional[str] = None,  
+        prompt_extend_target_lang: str = "zh",    
+        seed: int = -1,
         *args, **kwargs
     ):
+        logger.info("WanVideo flow: starting init")
+        assert ckpt_path is not None, "Please specify the checkpoint directory."
+        assert task in WAN_CONFIGS, f"Unsupport task: {task}"
+        assert task in EXAMPLE_PROMPT, f"Unsupport task: {task}"
         super().__init__(
             first_stage_config=first_stage_config,
             cond_stage_config=cond_stage_config,
@@ -73,12 +79,13 @@ class WanVideoModelFlow(GenerationFlow):
             lr_scheduler_config=lr_scheduler_config,
             trainable_components=[]
         )
-
+        logger.info("WanVideo flow: class init finished")
         self.task = task
+        self.ckpt_path = ckpt_path
         self.use_prompt_extend = use_prompt_extend
         self.prompt_extend_model = prompt_extend_model
         self.prompt_extend_target_lang = prompt_extend_target_lang
-        self.base_seed = base_seed
+        self.seed = seed
         self.offload_model = offload_model
         self.ulysses_size = ulysses_size
         self.ring_size = ring_size
@@ -90,7 +97,7 @@ class WanVideoModelFlow(GenerationFlow):
 
         if offload_model is None:
             offload_model = False if world_size > 1 else True
-            mainlogger.info(
+            logger.info(
                 f"offload_model is not specified, set to {offload_model}.")
         if world_size > 1:
             torch.cuda.set_device(local_rank)
@@ -99,6 +106,7 @@ class WanVideoModelFlow(GenerationFlow):
                 init_method="env://",
                 rank=rank,
                 world_size=world_size)
+            logger.info("WanVideo flow: Init Process Group")
         else:
             assert not (
                 t5_fsdp or dit_fsdp
@@ -119,6 +127,7 @@ class WanVideoModelFlow(GenerationFlow):
                 ring_degree=ring_size,
                 ulysses_degree=ulysses_size,
             )
+            logger.info("WanVideo flow: Init Ring/Ulysses Seqeunce Parallel Process Group")
 
         if use_prompt_extend:
             if prompt_extend_method == "dashscope":
@@ -132,25 +141,27 @@ class WanVideoModelFlow(GenerationFlow):
             else:
                 raise NotImplementedError(
                     f"Unsupport prompt_extend_method: {prompt_extend_method}")
+            logger.info("WanVideo flow: Set Prompt Extention")
 
         cfg = WAN_CONFIGS[task]
+        self.cfg = cfg
         if ulysses_size > 1:
             assert cfg.num_heads % ulysses_size == 0, f"`{cfg.num_heads=}` cannot be divided evenly by `{ulysses_size=}`."
 
-        mainlogger.info(f"Generation job args: {args}")
-        mainlogger.info(f"Generation model config: {cfg}")
+        logger.info(f"WanVideo flow: model config: {cfg}")
 
         if dist.is_initialized():
-            base_seed = [base_seed] if rank == 0 else [None]
-            dist.broadcast_object_list(base_seed, src=0)
-            base_seed = base_seed[0]
+            seed = [seed] if rank == 0 else [None]
+            dist.broadcast_object_list(seed, src=0)
+            seed = seed[0]
+            logger.info(f"WanVideo flow: broadcast seed")
         
 
         if "t2v" in task or "t2i" in task:
-            mainlogger.info("Creating WanT2V pipeline.")
+            logger.info("Creating WanT2V pipeline.")
             self.wan_t2v = wan.WanT2V(
                 config=cfg,
-                checkpoint_dir=ckpt_dir,
+                checkpoint_dir=ckpt_path,
                 device_id=device,
                 rank=rank,
                 t5_fsdp=t5_fsdp,
@@ -162,10 +173,10 @@ class WanVideoModelFlow(GenerationFlow):
                 denoiser=self.denoiser
             )
         else:
-            mainlogger.info("Creating WanI2V pipeline.")
+            logger.info("Creating WanI2V pipeline.")
             self.wan_i2v = wan.WanI2V(
                 config=cfg,
-                checkpoint_dir=ckpt_dir,
+                checkpoint_dir=ckpt_path,
                 device_id=device,
                 rank=rank,
                 t5_fsdp=t5_fsdp,
@@ -178,37 +189,46 @@ class WanVideoModelFlow(GenerationFlow):
                 denoiser=self.denoiser
             )
         
-    
-    def forward(self, x, c, **kwargs):
-        pass
-    
-    def training_step(self, batch, batch_idx):
-        pass
+    def _validate_args(self, args):        
+        # Size reassign and check
+        args.size = f"{args.width}*{args.height}"
+        logger.info(f"setting size = width*height == {args.size}")
+        assert args.size in SUPPORTED_SIZES[
+            self.task], f"Unsupport size {args.size} for task {self.task}, supported sizes are: {', '.join(SUPPORTED_SIZES[self.task])}"
 
-    @torch.no_grad()
-    def inference(self, args):
+    def inference_t2v(self, args: DictConfig):
+        # init vars
         rank = int(os.getenv("RANK", 0))
         world_size = int(os.getenv("WORLD_SIZE", 1))
         local_rank = int(os.getenv("LOCAL_RANK", 0))
         device = local_rank
+
+        frames = args.frames
+        size = args.size
+        sample_shift = args.time_shift
+        sample_solver = args.solver
+        sampling_steps = args.num_inference_steps
+        guide_scale = args.unconditional_guidance_scale
+
+        # load input
+        prompt_list = self.load_inference_inputs(args.prompt_file, args.mode)
+        if len(prompt_list) > 1:
+            logger.warning("WanVideo currently does not support batch inference, we will run sample at a time")
         
-        prompt = None
-        image = None
-        if "t2v" in self.task or "t2i" in self.task:
-            if prompt is None:
-                prompt = EXAMPLE_PROMPT[self.task]["prompt"]
-            mainlogger.info(f"Input prompt: {prompt}")
+        videos = []
+        for prompt in prompt_list:
+            logger.info(f"Input prompt: {prompt}")
             if self.use_prompt_extend:
-                mainlogger.info("Extending prompt ...")
+                logger.info("Extending prompt ...")
                 if rank == 0:
                     prompt_output = self.prompt_expander(
                         prompt,
                         tar_lang=self.prompt_extend_target_lang,
-                        seed=self.base_seed)
+                        seed=self.seed)
                     if prompt_output.status == False:
-                        mainlogger.info(
+                        logger.info(
                             f"Extending prompt failed: {prompt_output.message}")
-                        mainlogger.info("Falling back to original prompt.")
+                        logger.info("Falling back to original prompt.")
                         input_prompt = prompt
                     else:
                         input_prompt = prompt_output.prompt
@@ -218,42 +238,65 @@ class WanVideoModelFlow(GenerationFlow):
                 if dist.is_initialized():
                     dist.broadcast_object_list(input_prompt, src=0)
                 prompt = input_prompt[0]
-                mainlogger.info(f"Extended prompt: {prompt}")
+                logger.info(f"Extended prompt: {prompt}")
 
-            mainlogger.info(
+            logger.info(
                 f"Generating {'image' if 't2i' in self.task else 'video'} ...")
             video = self.wan_t2v.generate(
                 prompt,
-                size=SIZE_CONFIGS[args['size']],
-                frame_num=args['frame_num'],
-                shift=args['sample_shift'],
-                sample_solver=args['sample_solver'],
-                sampling_steps=args['sample_steps'],
-                guide_scale=args['sample_guide_scale'],
-                seed=self.base_seed,
+                size=SIZE_CONFIGS[size],
+                frame_num=frames,
+                shift=sample_shift,
+                sample_solver=sample_solver,
+                sampling_steps=sampling_steps,
+                guide_scale=guide_scale,
+                seed=self.seed,
                 offload_model=self.offload_model)
+            videos.append(video)
 
-        else:
-            if prompt is None:
-                prompt = EXAMPLE_PROMPT[self.task]["prompt"]
-            if image is None:
-                image = EXAMPLE_PROMPT[self.task]["image"]
-            mainlogger.info(f"Input prompt: {prompt}")
-            mainlogger.info(f"Input image: {image}")
+        if rank == 0:
+            logger.info("Saving videos")
+            filenames = self.process_savename(prompt_list, args.n_samples_prompt)
+            self.save_videos(torch.stack(videos).unsqueeze(dim=1), args.savedir, filenames, fps=args.savefps)
 
-            img = Image.open(image).convert("RGB")
+    def inference_i2v(self, args: DictConfig):
+        # init vars
+        rank = int(os.getenv("RANK", 0))
+        world_size = int(os.getenv("WORLD_SIZE", 1))
+        local_rank = int(os.getenv("LOCAL_RANK", 0))
+        device = local_rank
+
+        frames = args.frames
+        size = args.size
+        sample_shift = args.time_shift
+        sample_solver = args.solver
+        sampling_steps = args.num_inference_steps
+        guide_scale = args.unconditional_guidance_scale
+
+        prompt_list, image_list = self.load_inference_inputs(args.prompt_dir, args.mode)
+        assert len(prompt_list) == len(image_list), "prompt and image number should match"
+        
+        if len(prompt_list) > 0:
+            logger.warning("WanVideo currently does not support batch inference, we will run sample at a time")
+            
+        videos = []
+        for prompt, image_path in zip(prompt_list, image_list):
+            logger.info(f"Input prompt: {prompt}")
+            logger.info(f"Input image: {image_path}")
+
+            img = Image.open(image_path).convert("RGB")
             if self.use_prompt_extend:
-                mainlogger.info("Extending prompt ...")
+                logger.info("Extending prompt ...")
                 if rank == 0:
                     prompt_output = self.prompt_expander(
                         prompt,
                         tar_lang=self.prompt_extend_target_lang,
                         image=img,
-                        seed=self.base_seed)
+                        seed=self.seed)
                     if prompt_output.status == False:
-                        mainlogger.info(
+                        logger.info(
                             f"Extending prompt failed: {prompt_output.message}")
-                        mainlogger.info("Falling back to original prompt.")
+                        logger.info("Falling back to original prompt.")
                         input_prompt = prompt
                     else:
                         input_prompt = prompt_output.prompt
@@ -263,51 +306,53 @@ class WanVideoModelFlow(GenerationFlow):
                 if dist.is_initialized():
                     dist.broadcast_object_list(input_prompt, src=0)
                 prompt = input_prompt[0]
-                mainlogger.info(f"Extended prompt: {prompt}")
+                logger.info(f"Extended prompt: {prompt}")
 
 
-            mainlogger.info("Generating video ...")
+            logger.info("Generating video ...")
             video = self.wan_i2v.generate(
                 prompt,
                 img,
-                max_area=MAX_AREA_CONFIGS[args['size']],
-                frame_num=args['frame_num'],
-                shift=args['sample_shift'],
-                sample_solver=args['sample_solver'],
-                sampling_steps=args['sample_steps'],
-                guide_scale=args['sample_guide_scale'],
-                seed=self.base_seed,
+                max_area=MAX_AREA_CONFIGS[size],
+                frame_num=frames,                                  
+                shift=sample_shift,
+                sample_solver=sample_solver,
+                sampling_steps=sampling_steps,
+                guide_scale=guide_scale,
+                seed=self.seed,
                 offload_model=self.offload_model)
-
-        save_file = None
+            video = video.cpu()
+            videos.append(video)
+            
         if rank == 0:
-            if save_file is None:
-                formatted_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-                formatted_prompt = prompt.replace(" ", "_").replace("/",
-                                                                        "_")[:50]
-                suffix = '.png' if "t2i" in self.task else '.mp4'
-                save_file = f"{self.task}_{size.replace('*','x') if sys.platform=='win32' else args['size']}_{self.ulysses_size}_{self.ring_size}_{formatted_prompt}_{formatted_time}" + suffix
+            logger.info("Saving videos")
+            filenames = self.process_savename(prompt_list, args.n_samples_prompt)
+            self.save_videos(torch.stack(videos).unsqueeze(dim=1), args.savedir, filenames, fps=args.savefps)
 
-            if "t2i" in self.task:
-                mainlogger.info(f"Saving generated image to {save_file}")
-                cache_image(
-                    tensor=video.squeeze(1)[None],
-                    save_file=save_file,
-                    nrow=1,
-                    normalize=True,
-                    value_range=(-1, 1))
-            else:
-                mainlogger.info(f"Saving generated video to {save_file}")
-                cache_video(
-                    tensor=video[None],
-                    save_file=save_file,
-                    fps=16,
-                    nrow=1,
-                    normalize=True,
-                    value_range=(-1, 1))
-        mainlogger.info("Finished.")
-    
+
+    @torch.no_grad()
+    def inference(self, args: DictConfig): 
+        # check input  
+        self._validate_args(args) 
+
+        # t2v mode
+        if args.mode == VideoMode.T2V.value:  
+            self.inference_t2v(args)
+        # i2v mode
+        elif args.mode == VideoMode.I2V.value:
+            self.inference_i2v(args)
+        else:
+            raise ValueError("Error: invalid mode, we currently only support t2v and i2v for wanvideo")
 
     def from_pretrained(self,
                         ckpt_path: Optional[Union[str, Path]] = None):
-        pass
+        if "t2v" in self.task or "t2i" in self.task:
+            self.wan_t2v.load_weight()
+        else:
+            self.wan_i2v.load_weight()
+    
+    def enable_vram_management(self):
+        if "t2v" in self.task or "t2i" in self.task:
+            self.wan_t2v.enable_vram_management()
+        else:
+            self.wan_i2v.enable_vram_management()

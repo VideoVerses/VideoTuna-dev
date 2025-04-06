@@ -15,7 +15,7 @@ from transformers import (
 from transformers.utils import ModelOutput
 
 from ..constants import TEXT_ENCODER_PATH, TOKENIZER_PATH
-from ..constants import PRECISION_TO_TYPE
+from ..constants import PRECISION_TO_TYPE, PROMPT_TEMPLATE
 
 
 def use_default(value, default):
@@ -533,4 +533,79 @@ class TextEncoder(nn.Module):
             do_sample=do_sample,
             hidden_state_skip_layer=hidden_state_skip_layer,
             return_texts=return_texts,
+        )
+
+
+class TextEncoderWrapper(nn.Module):
+    def __init__(self, 
+                i2v_mode: bool = True,
+                i2v_condition_type: str = 'token_replace',
+                text_encoder: str = "llm-i2v",
+                text_encoder_precision: str = "fp16",
+                text_states_dim: int = 4096,
+                text_len: int = 256,
+                tokenizer: str = "llm-i2v",
+                prompt_template: str = "dit-llm-encode-i2v",
+                prompt_template_video: str = "dit-llm-encode-video-i2v",
+                hidden_state_skip_layer: int = 2,
+                apply_final_norm: bool = False,
+                reproduce: bool = False,
+                device: str = 'cuda',
+                use_cpu_offload: bool = True,
+                *args, 
+                 **kwargs):
+        super().__init__(*args, **kwargs)
+        self.i2v_mode = i2v_mode
+        self.text_encoder = text_encoder
+        self.text_encoder_precision = text_encoder_precision
+        self.text_states_dim = text_states_dim
+        self.text_len = text_len
+        self.tokenizer = tokenizer
+        self.prompt_template = prompt_template
+        self.prompt_template_video = prompt_template_video
+        self.hidden_state_skip_layer = hidden_state_skip_layer
+        self.apply_final_norm = apply_final_norm
+        self.reproduce = reproduce
+        self.i2v_condition_type = i2v_condition_type
+        self.use_cpu_offload = use_cpu_offload
+        
+        # Text encoder
+        if self.i2v_mode:
+            self.text_encoder = "llm-i2v"
+            self.tokenizer = "llm-i2v"
+            self.prompt_template = "dit-llm-encode-i2v"
+            self.prompt_template_video = "dit-llm-encode-video-i2v"
+
+        if self.prompt_template_video is not None:
+            crop_start = PROMPT_TEMPLATE[self.prompt_template_video].get("crop_start", 0)
+        elif self.prompt_template is not None:
+            crop_start = PROMPT_TEMPLATE[self.prompt_template].get("crop_start", 0)
+        else:
+            crop_start = 0
+        max_length = self.text_len + crop_start
+
+        prompt_template = PROMPT_TEMPLATE[self.prompt_template] if self.prompt_template is not None else None
+        prompt_template_video = PROMPT_TEMPLATE[self.prompt_template_video] if self.prompt_template_video is not None else None
+
+        if self.i2v_mode and self.i2v_condition_type == "latent_concat":
+            image_embed_interleave = 2
+        elif self.i2v_mode and self.i2v_condition_type == "token_replace":
+            image_embed_interleave = 4
+        else:
+            image_embed_interleave = 1
+        
+        self.text_encoder = TextEncoder(
+            text_encoder_type=self.text_encoder,
+            max_length=max_length,
+            text_encoder_precision=self.text_encoder_precision,
+            tokenizer_type=self.tokenizer,
+            i2v_mode=self.i2v_mode,
+            prompt_template=prompt_template,
+            prompt_template_video=prompt_template_video,
+            hidden_state_skip_layer=self.hidden_state_skip_layer,
+            apply_final_norm=self.apply_final_norm,
+            reproduce=self.reproduce,
+            logger=None,
+            device=device if not use_cpu_offload else "cpu",
+            image_embed_interleave=image_embed_interleave
         )

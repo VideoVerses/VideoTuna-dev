@@ -1,6 +1,6 @@
 # Modified from ``https://github.com/openai/CLIP'' and ``https://github.com/mlfoundations/open_clip''
 # Copyright 2024-2025 The Alibaba Wan Team Authors. All rights reserved.
-import logging
+from loguru import logger
 import math
 
 import torch
@@ -449,21 +449,14 @@ def clip_transforms(model, pretrained_name):
 
 class CLIPModel:
 
-    def __init__(self, dtype, device, checkpoint_path, tokenizer_path, model):
+    def __init__(self, dtype, device, checkpoint_path, tokenizer_path, model: XLMRobertaCLIP):
         self.dtype = dtype
         self.device = device
         self.checkpoint_path = checkpoint_path
         self.tokenizer_path = tokenizer_path
 
-        # init model
-        self.model = model
+        self.model = model.to(dtype)
         self.transforms = clip_transforms(model, 'open-clip-xlm-roberta-large-vit-huge-14')
-        self.model = self.model.eval().requires_grad_(False)
-        logging.info(f'loading {checkpoint_path}')
-        self.model.load_state_dict(
-            torch.load(checkpoint_path, map_location='cpu'))
-
-        # init tokenizer
         self.tokenizer = HuggingfaceTokenizer(
             name=tokenizer_path,
             seq_len=self.model.max_text_len - 2,
@@ -485,3 +478,10 @@ class CLIPModel:
         with torch.cuda.amp.autocast(dtype=self.dtype):
             out = self.model.visual(videos, use_31_block=True)
             return out
+
+    def load_weight(self):
+        logger.info(f'loading CLIPModel weight from ckpt_path: {self.checkpoint_path}')
+        self.model.load_state_dict(
+            torch.load(self.checkpoint_path, map_location='cpu'))
+        self.model = self.model.to(self.dtype)
+        logger.info(f'loading CLIPModel weight from ckpt_path: {self.checkpoint_path} finished')

@@ -105,7 +105,7 @@ NORMALIZATION_TYPE = {"layer", "rms"}
 ACTIVATION_TYPE = {"relu", "silu", "gelu", "gelu_tanh"}
 
 # =================== Model Path =====================
-MODEL_BASE = os.getenv("MODEL_BASE", "/project/llmsvgen/songsong/checkpoints/hunyuan/HunyuanVideo-I2V")
+MODEL_BASE = os.getenv("MODEL_BASE", "/checkpoints/hunyuanvideo/HunyuanVideo-I2V")
 
 # =================== Data =======================
 DATA_TYPE = {"image", "video", "image_video"}

@@ -1,5 +1,5 @@
 import torch, copy
-from videotuna.stepvideo.stepvideo.utils import with_empty_init
+from videotuna.utils.load_weights import init_weights_on_device
 
 def cast_to(weight, dtype, device):
     r = torch.empty_like(weight, dtype=dtype, device=device)
@@ -29,6 +29,7 @@ class AutoWrappedModule(torch.nn.Module):
             self.module.to(dtype=self.onload_dtype, device=self.onload_device)
             self.state = 1
 
+    @torch.inference_mode
     def forward(self, *args, **kwargs):
         if self.onload_dtype == self.computation_dtype and self.onload_device == self.computation_device:
             module = self.module
@@ -39,9 +40,9 @@ class AutoWrappedModule(torch.nn.Module):
 
 class AutoWrappedLinear(torch.nn.Linear):
 
-    @with_empty_init
     def __init__(self, module: torch.nn.Linear, offload_dtype, offload_device, onload_dtype, onload_device, computation_dtype, computation_device):
-        super().__init__(in_features=module.in_features, out_features=module.out_features, bias=module.bias is not None, dtype=offload_dtype, device=offload_device)
+        with init_weights_on_device(device=torch.device("meta")):
+            super().__init__(in_features=module.in_features, out_features=module.out_features, bias=module.bias is not None, dtype=offload_dtype, device=offload_device)
         self.weight = module.weight
         self.bias = module.bias
         self.offload_dtype = offload_dtype
@@ -62,6 +63,7 @@ class AutoWrappedLinear(torch.nn.Linear):
             self.to(dtype=self.onload_dtype, device=self.onload_device)
             self.state = 1
 
+    @torch.inference_mode
     def forward(self, x, *args, **kwargs):
         if self.onload_dtype == self.computation_dtype and self.onload_device == self.computation_device:
             weight, bias = self.weight, self.bias

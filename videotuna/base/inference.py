@@ -3,10 +3,13 @@ import os
 from einops import rearrange
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
+from loguru import logger
 
 import torch
 import torchvision
 import torchvision.transforms as transforms
+
+from videotuna.utils.args_utils import VideoMode
 
 
 class InferenceBase:
@@ -153,7 +156,73 @@ class InferenceBase:
             lines = f.readlines()
         prompt_list = [line.strip() for line in lines if line.strip() != ""]
         return prompt_list
+
+    @staticmethod
+    def load_prompts(prompts: Optional[Union[str, Path]]):
+        prompt_list = []
+        if prompts is None:
+            return prompt_list
+        
+        if os.path.isfile(prompts) and prompts.endswith('.txt'):
+            prompt_list = InferenceBase.load_prompts_from_txt(prompts)
+        else:
+            logger.info("Process the input path as a prompt")
+            prompt_list = [prompts]
+        return prompt_list
     
+    @staticmethod
+    def get_target_filelist(data_dir: str, ext: str):
+        """
+        Generate a sorted filepath list with target extensions.
+        Args:
+            data_dir (str): The directory to search for files.
+            ext (str): A comma-separated string of file extensions to match.
+                    Examples:
+                        - ext = "png,jpg,webp" (multiple extensions)
+                        - ext = "png" (single extension)
+        Returns: list: A sorted list of file paths matching the given extensions.
+        """
+        file_list = [
+            os.path.join(data_dir, f)
+            for f in os.listdir(data_dir)
+            if f.endswith(tuple(ext.split(",")))
+        ]
+        if len(file_list) == 0:
+            raise ValueError(f"No file with extensions {ext} found in {data_dir}.")
+        return file_list
+
+    @staticmethod
+    def load_prompts_from_txt(prompt_file: str):
+        """Load and return a list of prompts from a text file, stripping whitespace."""
+        with open(prompt_file, "r") as f:
+            lines = f.readlines()
+        prompt_list = [line.strip() for line in lines if line.strip() != ""]
+        return prompt_list
+
+    @staticmethod
+    def load_prompts_images(prompt_dir: str):
+        #1. load prompts
+        prompt_files = InferenceBase.get_target_filelist(prompt_dir, ext="txt")
+        if len(prompt_files) > 1:
+            # only use the first one (sorted by name) if multiple exist
+            logger.warning(
+                f"Warning: multiple prompt files exist. The one {os.path.split(prompt_files[0])[1]} is used."
+            )
+            prompt_file = prompt_files[0]
+        elif len(prompt_files) == 1:
+            prompt_file = prompt_files[0]
+        elif len(prompt_files) == 0:
+            print(prompt_files)
+            raise ValueError(f"Error: found NO prompt file in {prompt_dir}")
+
+        prompt_list = InferenceBase.load_prompts_from_txt(prompt_file)
+
+        #2. load images
+        image_path_list = sorted(InferenceBase.get_target_filelist(prompt_dir, ext="png,jpg,webp,jpeg"))
+        return prompt_list, image_path_list
+    
+    
+
     def load_inference_inputs(self, prompts: Optional[Union[str, Path]], mode: str = 't2v'):
         """
         Loads the prompts and conditions for the conditional stage model.
@@ -165,19 +234,13 @@ class InferenceBase:
         """
         assert prompts is not None, "Please provide a valid prompts or prompts path."
 
-        if mode == 't2v':
-            # load inputs for t2v
-            if os.path.isfile(prompts) and prompts.endswith('.txt'):
-                prompt_list = self.load_prompts_from_txt(prompts)
-            else:
-                print("Process the input path as a prompt")
-                prompt_list = [prompts]
-            return prompt_list
-        elif mode == 'i2v':
-            # TODO: load images
-            pass
+        if mode == VideoMode.T2V.value:
+            return InferenceBase.load_prompts(prompts)
+        elif mode == VideoMode.I2V.value:
+            return InferenceBase.load_prompts_images(prompts)
         else:
             raise NotImplementedError("Invalid mode.")
+
 
     
     # TODO: Add more methods as needed

@@ -1,5 +1,5 @@
 # Copyright 2024-2025 The Alibaba Wan Team Authors. All rights reserved.
-import logging
+from loguru import logger
 
 import torch
 import torch.cuda.amp as amp
@@ -610,11 +610,8 @@ class WanVAE:
         self.mean = torch.tensor(mean, dtype=dtype, device=device)
         self.std = torch.tensor(std, dtype=dtype, device=device)
         self.scale = [self.mean, 1.0 / self.std]
-
-        # load checkpoint
-        logging.info(f'loading {vae_pth}')
-        vae.load_state_dict(torch.load(vae_pth, map_location=device), assign=True)
-        self.model = vae
+        self.model = vae.to(dtype)
+        self.vae_pth = vae_pth
 
     def encode(self, videos):
         """
@@ -633,3 +630,9 @@ class WanVAE:
                                   self.scale).float().clamp_(-1, 1).squeeze(0)
                 for u in zs
             ]
+
+    def load_weight(self):    
+        logger.info(f'loading WanVAE from ckpt_path: {self.vae_pth}')
+        self.model.load_state_dict(torch.load(self.vae_pth, map_location=self.device), assign=True)
+        logger.info(f'loading WanVAE from ckpt_path: {self.vae_pth} Finished')
+        self.model = self.model.to(self.device).to(self.dtype)

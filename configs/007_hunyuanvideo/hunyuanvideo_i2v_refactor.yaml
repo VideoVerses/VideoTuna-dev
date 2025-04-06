@@ -1,90 +1,89 @@
 flow:
   target: videotuna.flow.hunyuanvideo.HunyuanVideoFlow
   params:
-    args:
-      # Model Configuration
-      model: HYVideo-T/2
-      latent_channels: 16
-      precision: bf16
-      rope_theta: 256
-      gradient_checkpoint: false
-      gradient_checkpoint_layers: -1
+    # Model Configuration
+    model: HYVideo-T/2
+    latent_channels: 16
+    precision: bf16
+    rope_theta: 256
+    gradient_checkpoint: false
+    gradient_checkpoint_layers: -1
 
-      # VAE Configuration
-      vae: 884-16c-hy
-      vae_precision: fp16
-      vae_tiling: true
+    # VAE Configuration
+    vae: 884-16c-hy
+    vae_precision: fp16
+    vae_tiling: true
 
-      # Text Encoder Settings
-      text_encoder: llm-i2v
-      text_encoder_precision: fp16
-      text_states_dim: 4096
-      text_len: 256
-      tokenizer: llm-i2v
-      prompt_template: dit-llm-encode-i2v
-      prompt_template_video: dit-llm-encode-video-i2v
-      hidden_state_skip_layer: 2
-      apply_final_norm: false
+    # Text Encoder Settings
+    text_encoder: llm-i2v
+    text_encoder_precision: fp16
+    text_states_dim: 4096
+    text_len: 256
+    tokenizer: llm-i2v
+    prompt_template: dit-llm-encode-i2v
+    prompt_template_video: dit-llm-encode-video-i2v
+    hidden_state_skip_layer: 2
+    apply_final_norm: false
 
-      # Secondary Text Encoder
-      text_encoder_2: clipL
-      text_encoder_precision_2: fp16
-      text_states_dim_2: 768
-      tokenizer_2: clipL
-      text_len_2: 77
+    # Secondary Text Encoder
+    text_encoder_2: clipL
+    text_encoder_precision_2: fp16
+    text_states_dim_2: 768
+    tokenizer_2: clipL
+    text_len_2: 77
 
-      # Diffusion Parameters
-      denoise_type: flow
-      flow_shift: 7.0
-      flow_reverse: true
-      flow_solver: euler
-      use_linear_quadratic_schedule: false
-      linear_schedule_end: 25
+    # Diffusion Parameters
+    denoise_type: flow
+    flow_shift: 7.0
+    flow_reverse: true
+    flow_solver: euler
+    use_linear_quadratic_schedule: false
+    linear_schedule_end: 25
 
-      # Image-to-Video Settings
-      i2v_mode: true
-      i2v_resolution: 720p
-      i2v_image_path: assets/demo/i2v/imgs/0.jpg
-      i2v_condition_type: token_replace
-      i2v_stability: true
+    # Image-to-Video Settings
+    i2v_mode: true
+    i2v_resolution: 720p
+    i2v_image_path: assets/demo/i2v/imgs/0.jpg
+    i2v_condition_type: token_replace
+    i2v_stability: true
 
-      # LoRA Settings
-      use_lora: false
-      lora_path: ''
-      lora_scale: 1.0
-      lora_rank: 64
+    # LoRA Settings
+    use_lora: false
+    lora_path: ''
+    lora_scale: 1.0
+    lora_rank: 64
 
-      # Path Settings
-      model_base: /project/llmsvgen/songsong/checkpoints/hunyuan/HunyuanVideo-I2V
-      dit_weight: ckpts/hunyuan-video-t2v-720p/transformers/mp_rank_00_model_states.pt
-      i2v_dit_weight: /project/llmsvgen/songsong/checkpoints/hunyuan/HunyuanVideo-I2V/hunyuan-video-i2v-720p/transformers/mp_rank_00_model_states.pt
-      model_resolution: 540p
-      load_key: module
+    # Path Settings
+    model_base: /checkpoints/hunyuanvideo/HunyuanVideo-I2V
+    dit_weight: ckpts/hunyuan-video-t2v-720p/transformers/mp_rank_00_model_states.pt
+    i2v_dit_weight: /checkpoints/hunyuanvideo/HunyuanVideo-I2V/hunyuan-video-i2v-720p/transformers/mp_rank_00_model_states.pt
+    model_resolution: 540p
+    load_key: module
 
-      # Inference Settings
-      use_cpu_offload: true
-      batch_size: 1
-      infer_steps: 50
-      disable_autocast: false
-      save_path: ./results
-      save_path_suffix: ''
-      name_suffix: ''
-      num_videos: 1
-      video_size: [720, 1280]
-      video_length: 129
-      prompt: An Asian man with short hair in black tactical uniform and white clothes waves a firework stick.
-      seed_type: auto
-      seed: 0
-      neg_prompt: null
-      cfg_scale: 1.0
-      embedded_cfg_scale: 6.0
+    # Inference Settings
+    use_cpu_offload: true
+    batch_size: 1
+    infer_steps: 50
+    disable_autocast: false
+    save_path: ./results
+    save_path_suffix: ''
+    name_suffix: ''
+    num_videos: 1
+    video_size: [720, 1280]
+    video_length: 129
+    prompt: An Asian man with short hair in black tactical uniform and white clothes waves a firework stick.
+    seed_type: auto
+    seed: 0
+    neg_prompt: null
+    cfg_scale: 1.0
+    embedded_cfg_scale: 6.0
 
-      # Advanced Settings
-      use_fp8: false
-      reproduce: false
-      ulysses_degree: 1
-      ring_degree: 1
-      xdit_adaptive_size: false
+    # Advanced Settings
+    use_fp8: false
+    reproduce: false
+    ulysses_degree: 1
+    ring_degree: 1
+    xdit_adaptive_size: false
       
     ckpt_path: /project/llmsvgen/songsong/checkpoints/hunyuan/HunyuanVideo-I2V
     denoiser_ckpt_path: ${flow.params.ckpt_path}/hunyuan-video-i2v-720p/transformers/mp_rank_00_model_states.pt
@@ -177,7 +176,6 @@ flow:
         device: cpu
         image_embed_interleave: null
     
-    # Denosier model
     denoiser_config:
       target: videotuna.hunyuan.hyvideo_i2v.modules.models.HYVideoDiffusionTransformer
       params:
@@ -219,21 +217,20 @@ flow:
 
 
 inference:
-  ckpt_path: /project/llmsvgen/songsong/DiffSynth-Studio/models/stepfun-ai/stepvideo-t2v
-  mode: t2v
-  savedir: results/t2v/videocrafter2
+  mode: i2v
+  ckpt_path: checkpoints/wan/Wan2.1-I2V-14B-480P
+  savedir: results/i2v/wanvideo
   seed: 42
-  height: 544
-  width: 992
-  num_frames: 204 
-  num_inference_steps: 5
+  height: 480
+  width: 832
+  prompt_dir: "inputs/i2v/576x1024"
+  solver: "unipc"           
+  num_inference_steps: 40                
+  time_shift: 3.0                
+  unconditional_guidance_scale: 5.0                       
+  frames: 81
   n_samples_prompt: 1
-  time_shift: 13.0
   bs: 1
-  ddim_steps: 1
-  ddim_eta: 1.0
-  unconditional_guidance_scale: 12.0
-  fps: 1
-  prompts: '一名宇航员在月球上发现一块石碑，上面印有“stepfun”字样，闪闪发光'
+  savefps: 28
     
 

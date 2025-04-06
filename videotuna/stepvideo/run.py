@@ -5,8 +5,6 @@ from stepvideo.utils import setup_seed
 
 import torch
 import os
-from flask import Flask, Response, jsonify, request, Blueprint
-from flask_restful import Api, Resource
 import pickle
 import argparse
 import threading
@@ -40,4 +38,3 @@ if __name__ == "__main__":
         neg_magic=args.neg_magic,
         output_file_name=prompt[:50]
     )
-    #python videotuna/stepvideo/run_parallel.py --model_dir /project/llmsvgen/songsong/DiffSynth-Studio/models/stepfun-ai/stepvideo-t2v --vae_dir vae --llm_dir step_llm --clip_dir hunyuan_clip  --prompt "一名宇航员在月球上发现一块石碑，上面印有“stepfun”字样，闪闪发光" --infer_steps 50  --cfg_scale 9.0 --time_shift 13.0

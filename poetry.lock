@@ -1062,6 +1062,26 @@ docs = ["ipython", "matplotlib", "numpydoc", "sphinx"]
 tests = ["pytest", "pytest-cov", "pytest-xdist"]
 
 [[package]]
+name = "dashscope"
+version = "1.23.0"
+description = "dashscope client sdk library"
+optional = false
+python-versions = ">=3.8.0"
+groups = ["main"]
+markers = "python_version <= \"3.11\" or python_version >= \"3.12\""
+files = [
+    {file = "dashscope-1.23.0-py3-none-any.whl", hash = "sha256:887a238e970ccca035b1554fbb2606662a8b557d8533b8afc6a532580c12a099"},
+]
+
+[package.dependencies]
+aiohttp = "*"
+requests = "*"
+websocket-client = "*"
+
+[package.extras]
+tokenizer = ["tiktoken"]
+
+[[package]]
 name = "datasets"
 version = "3.2.0"
 description = "HuggingFace community-driven open-source library of datasets"
@@ -1234,6 +1254,24 @@ files = [
     {file = "distlib-0.3.9-py2.py3-none-any.whl", hash = "sha256:47f8c22fd27c27e25a65601af709b38e4f0a45ea4fc2e710f65755fa8caaaf87"},
     {file = "distlib-0.3.9.tar.gz", hash = "sha256:a60f20dea646b8a33f3e7772f74dc0b2d0772d2837ee1342a00645c81edf9403"},
 ]
+
+[[package]]
+name = "distvae"
+version = "0.0.0b5"
+description = "DistVAE: Patch Parallelism Distributed VAE for High-Resolution image generation"
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+markers = "python_version <= \"3.11\" or python_version >= \"3.12\""
+files = [
+    {file = "DistVAE-0.0.0b5-py3-none-any.whl", hash = "sha256:e0a7e302ba0935251086b788a95cc971602698b9743eb36ed4ca910ddaf286bb"},
+    {file = "distvae-0.0.0b5.tar.gz", hash = "sha256:4376467ed2b7d6e9e7cab0bc174e49f1771535d07eaa8d2a86ef6f537e2977f6"},
+]
+
+[package.dependencies]
+diffusers = ">=0.27.2"
+torch = ">=2.2"
+transformers = "*"
 
 [[package]]
 name = "docker-pycreds"
@@ -5874,6 +5912,24 @@ docs = ["Sphinx (>=1.7.5)", "pylons-sphinx-themes"]
 testing = ["coverage", "pytest (>=3.1.0)", "pytest-cov", "pytest-xdist"]
 
 [[package]]
+name = "websocket-client"
+version = "1.8.0"
+description = "WebSocket client for Python with low level API options"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+markers = "python_version <= \"3.11\" or python_version >= \"3.12\""
+files = [
+    {file = "websocket_client-1.8.0-py3-none-any.whl", hash = "sha256:17b44cc997f5c498e809b22cdf2d9c7a9e71c02c8cc2b6c56e7c2d1239bfa526"},
+    {file = "websocket_client-1.8.0.tar.gz", hash = "sha256:3239df9f44da632f96012472805d40a23281a991027ce11d2f45a6f24ac4c3da"},
+]
+
+[package.extras]
+docs = ["Sphinx (>=6.0)", "myst-parser (>=2.0.0)", "sphinx-rtd-theme (>=1.1.0)"]
+optional = ["python-socks", "wsaccel"]
+test = ["websockets"]
+
+[[package]]
 name = "win32-setctime"
 version = "1.2.0"
 description = "A small Python utility to set file creation time on Windows"
@@ -5912,6 +5968,40 @@ files = [
 [package.dependencies]
 numpy = "*"
 torch = "2.2.2"
+
+[[package]]
+name = "xfuser"
+version = "0.4.3.post2"
+description = "A Scalable Inference Engine for Diffusion Transformers (DiTs) on Multiple Computing Devices"
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+markers = "python_version <= \"3.11\" or python_version >= \"3.12\""
+files = [
+    {file = "xfuser-0.4.3.post2-py3-none-any.whl", hash = "sha256:4e2a431c343393b3a98b2ff0e83126ab3feb5c92280f0752af383622e8ff2c1c"},
+    {file = "xfuser-0.4.3.post2.tar.gz", hash = "sha256:9c8a0a92b4df4352ad54b0c54938715e4758ed729dee9ec3506ab6cb5e5c7cd2"},
+]
+
+[package.dependencies]
+accelerate = ">=0.33.0"
+beautifulsoup4 = ">=4.12.3"
+distvae = "*"
+einops = "*"
+imageio = "*"
+imageio-ffmpeg = "*"
+opencv-python = "*"
+pytest = "*"
+sentencepiece = ">=0.1.99"
+torch = ">=2.1.0"
+transformers = ">=4.39.1"
+yunchang = ">=0.6.0"
+
+[package.extras]
+diffusers = ["diffusers (>=0.31.0)"]
+flash-attn = ["flash-attn (>=2.6.0)"]
+flask = ["flask"]
+optimum-quanto = ["optimum-quanto"]
+ray = ["ray"]
 
 [[package]]
 name = "xxhash"
@@ -6163,6 +6253,22 @@ multidict = ">=4.0"
 propcache = ">=0.2.0"
 
 [[package]]
+name = "yunchang"
+version = "0.6.1"
+description = "a package for long context attention"
+optional = false
+python-versions = ">=3.7"
+groups = ["main"]
+markers = "python_version <= \"3.11\" or python_version >= \"3.12\""
+files = [
+    {file = "yunchang-0.6.1-py3-none-any.whl", hash = "sha256:20dfc6502a02cace5eee60dd97f03ac6bb496b34a35e9e4e6fd8ce566f7444b1"},
+    {file = "yunchang-0.6.1.tar.gz", hash = "sha256:068471774038b8bb846335b025ab9cc1ddb8d1660c108115bbdb02318d358b45"},
+]
+
+[package.extras]
+flash = ["flash-attn (>=2.6.0)"]
+
+[[package]]
 name = "zipp"
 version = "3.21.0"
 description = "Backport of pathlib-compatible object wrapper for zip files"
@@ -6262,4 +6368,4 @@ testing = ["coverage[toml]", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "9d975e6e64c57518b9fdc37d98f9514678e38a1a11773c7316ce7f5076102538"
+content-hash = "6db9fd7cb3d5b8d8c014e700dcc53b29cc740254d82f1fe48ae5ebf11cb914d6"

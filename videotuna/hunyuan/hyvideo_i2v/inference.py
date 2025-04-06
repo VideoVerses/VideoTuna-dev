@@ -14,6 +14,7 @@ from hyvideo.vae import load_vae
 from hyvideo.modules import load_model
 from hyvideo.text_encoder import TextEncoder
 from hyvideo.utils.data_utils import align_to, get_closest_ratio, generate_crop_size_list
+from hyvideo.utils.file_utils import save_videos_grid
 from hyvideo.utils.lora_utils import load_lora_for_pipeline
 from hyvideo.modules.posemb_layers import get_nd_rotary_pos_embed
 from hyvideo.modules.fp8_optimization import convert_fp8_linear

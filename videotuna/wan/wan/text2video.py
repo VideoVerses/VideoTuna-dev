@@ -17,7 +17,7 @@ from tqdm import tqdm
 
 from .distributed.fsdp import shard_model
 from .modules.model import WanModel
-from .modules.t5 import T5Encoder, T5Decoder, T5Model, T5EncoderModel
+from .modules.t5 import T5Encoder, T5EncoderModel
 from .modules.vae import WanVAE, WanVAE_
 from .utils.fm_solvers import (FlowDPMSolverMultistepScheduler,
                                get_sampling_sigmas, retrieve_timesteps)
@@ -37,7 +37,7 @@ class WanT2V:
         use_usp=False,
         t5_cpu=False,
         first_stage_model: WanVAE_= None ,
-        cond_stage_model:Union[T5Encoder, T5Decoder, T5Model]=None,
+        cond_stage_model:T5Encoder=None,
         denoiser: WanModel=None,
     ):
         r"""
@@ -65,7 +65,9 @@ class WanT2V:
         self.config = config
         self.rank = rank
         self.t5_cpu = t5_cpu
-
+        self.t5_fsdp = t5_fsdp
+        self.dit_fsdp = dit_fsdp
+        self.use_usp = use_usp
         self.num_train_timesteps = config.num_train_timesteps
         self.param_dtype = config.param_dtype
 
@@ -81,33 +83,15 @@ class WanT2V:
             model=cond_stage_model)
 
         #vae
-        self.vae: WanVAE = WanVAE(vae=first_stage_model, vae_pth=os.path.join(checkpoint_dir, config.vae_checkpoint), device=self.device)
+        self.vae: WanVAE = WanVAE(vae=first_stage_model, 
+                                  vae_pth=os.path.join(checkpoint_dir, config.vae_checkpoint), 
+                                  device=self.device)
         self.vae_stride = config.vae_stride
         self.patch_size = config.patch_size
 
         #denoiser
         self.model: WanModel = denoiser
-        self.model.eval().requires_grad_(False)
-        
-        if use_usp:
-            from xfuser.core.distributed import \
-                get_sequence_parallel_world_size
-
-            from .distributed.xdit_context_parallel import (usp_attn_forward,
-                                                            usp_dit_forward)
-            for block in self.model.blocks:
-                block.self_attn.forward = types.MethodType(
-                    usp_attn_forward, block.self_attn)
-            self.model.forward = types.MethodType(usp_dit_forward, self.model)
-            self.sp_size = get_sequence_parallel_world_size()
-        else:
-            self.sp_size = 1
-
-        if dist.is_initialized():
-            dist.barrier()
-        if dit_fsdp:
-            self.model = shard_fn(self.model)
-
+        self.shard_fn = shard_fn
         self.sample_neg_prompt = config.sample_neg_prompt
 
     def generate(self,
@@ -268,3 +252,31 @@ class WanT2V:
             dist.barrier()
 
         return videos[0] if self.rank == 0 else None
+
+    def load_weight(self):
+        self.text_encoder.load_weight()
+        self.vae.load_weight()
+        #denoiser use from_pretrained, no need load again
+        if self.use_usp:
+            from xfuser.core.distributed import \
+                get_sequence_parallel_world_size
+
+            from .distributed.xdit_context_parallel import (usp_attn_forward,
+                                                            usp_dit_forward)
+            for block in self.model.blocks:
+                block.self_attn.forward = types.MethodType(
+                    usp_attn_forward, block.self_attn)
+            self.model.forward = types.MethodType(usp_dit_forward, self.model)
+            self.sp_size = get_sequence_parallel_world_size()
+        else:
+            self.sp_size = 1
+
+        if dist.is_initialized():
+            dist.barrier()
+        if self.dit_fsdp:
+            self.model = self.shard_fn(self.model)
+        else:
+            self.model = self.model.to(self.device)
+
+    def enable_vram_management(self):
+        pass

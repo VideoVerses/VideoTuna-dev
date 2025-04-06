@@ -365,6 +365,10 @@ After downloading, the model checkpoints should be placed as [Checkpoint Structu
 Task|Model|Command|Length (#frames)|Resolution|Inference Time (s)|GPU Memory (GiB)|
 |:---------|:---------|:---------|:---------|:---------|:---------|:---------|
 |T2V|HunyuanVideo|`poetry run inference-hunyuan`|129|720x1280|1920|59.15|
+|I2V|HunyuanVideo|`poetry run inference-hunyuan-i2v-720p`|129|720x1280|1718.1|42.17|
+|T2V|WanVideo|`poetry run inference-wanvideo-t2v-720p`|81|720x1280|1940.6|69.11|
+|I2V|WanVideo|`poetry run inference-wanvideo-i2v-720p `|81|720x1280|1650.1|76.91|
+|T2V|StepVideo|`poetry run inference-stepvideo-t2v-544x992`|51|544x992|452.9|60.37|
 |T2V|Mochi|`poetry run inference-mochi`|84|480x848|109.0|26|
 |I2V|CogVideoX-5b-I2V|`poetry run inference-cogvideox-15-5b-i2v`|49|480x720|310.4|4.78|
 |T2V|CogVideoX-2b|`poetry run inference-cogvideo-t2v-diffusers`|49|480x720|107.6|2.32|

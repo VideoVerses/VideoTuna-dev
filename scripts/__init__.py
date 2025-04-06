@@ -566,6 +566,119 @@ def inference_vc1_i2v_320x512():
     )
     exit(result.returncode)
 
+def inference_stepvideo_t2v_544x992():
+    ckpt = "checkpoints/stepvideo/stepvideo-t2v/"
+    config = "configs/009_stepvideo/stepvideo_t2v_refactor.yaml"
+    prompt_file = "inputs/t2v/prompts.txt"
+    savedir = "results/t2v/stepvideo"
+    result = subprocess.run(
+        [
+            "python3",
+            "scripts/inference_new.py",
+            "--ckpt_path",
+            ckpt,
+            "--config",
+            config,
+            "--prompt_file",
+            prompt_file,
+            "--savedir",
+            savedir,
+            "--height",
+            "544",
+            "--width",
+            "992",
+            "--frames",
+            "51",
+            "--seed",
+            "44",
+            "--num_inference_steps",
+            "50",
+        ]
+        + sys.argv[1:],
+        check=False,
+    )
+    exit(result.returncode)
+
+
+def inference_wanvideo_i2v_720p():
+    ckpt = "checkpoints/wan/Wan2.1-I2V-14B-720P/"
+    config = "configs/008_wanvideo/wan2_1_i2v_14B_720P_refactor.yaml"
+    prompt_dir = "inputs/i2v/576x1024"
+    savedir = "results/i2v/wanvideo/720P"
+    result = subprocess.run(
+        [
+            "python3",
+            "scripts/inference_new.py",
+            "--ckpt_path", ckpt,
+            "--config", config,
+            "--prompt_dir", prompt_dir,
+            "--savedir", savedir,
+            "--height", "720",
+            "--width", "1280",
+            "--frames", "81",
+            "--seed", "44",
+            "--num_inference_steps", "40",
+            "--time_shift", "5.0",
+        ]
+        + sys.argv[1:],
+        check=False,
+    )
+    exit(result.returncode)
+
+
+def inference_wanvideo_t2v_720p():
+    ckpt = "checkpoints/wan/Wan2.1-I2V-14B-720P/"
+    config = "configs/008_wanvideo/wan2_1_i2v_14B_720P_refactor.yaml"
+    prompt_file = "inputs/t2v/prompts.txt"
+    savedir = "results/t2v/wanvideo/720P"
+    result = subprocess.run(
+        [
+            "python3",
+            "scripts/inference_new.py",
+            "--ckpt_path", ckpt,
+            "--config", config,
+            "--prompt_file", prompt_file,
+            "--savedir", savedir,
+            "--height", "720",
+            "--width", "1280",
+            "--frames", "81",
+            "--seed", "44",
+            "--time_shift", "5.0",
+            "--num_inference_steps", "50",
+        ]
+        + sys.argv[1:],
+        check=False,
+    )
+    exit(result.returncode)
+
+def inference_hunyuan_i2v_720p():
+    ckpt = "checkpoints/hunyuanvideo/HunyuanVideo-I2V"
+    dit_weight = "checkpoints/hunyuanvideo/HunyuanVideo-I2V/hunyuan-video-i2v-720p/transformers/mp_rank_00_model_states.pt"
+    config = "configs/007_hunyuanvideo/hunyuanvideo_i2v_wrapper_refactor.yaml"
+    prompt_dir = "inputs/i2v/576x1024"
+    savedir = "results/i2v/hunyuan"
+    
+    result = subprocess.run(
+        [
+            "python3",
+            "scripts/inference_new.py",
+            "--ckpt_path", ckpt,
+            "--dit_weight", dit_weight,
+            "--config", config,
+            "--prompt_dir", prompt_dir,
+            "--savedir", savedir,
+            "--height", "720",
+            "--width", "1280",
+            "--i2v_resolution", "720p",
+            "--frames", "129",
+            "--seed", "44",
+            "--num_inference_steps", "50",
+        ]
+        + sys.argv[1:],
+        check=False,
+    )
+    exit(result.returncode)
+
 
 def inference_vc1_t2v_576x1024():
     ckpt = "checkpoints/videocrafter/t2v_v1_1024/model.ckpt"

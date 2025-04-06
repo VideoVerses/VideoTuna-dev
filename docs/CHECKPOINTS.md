@@ -55,6 +55,28 @@ mkdir checkpoints/videocrafter/t2v_v1_1024
 wget https://huggingface.co/VideoCrafter/Text2Video-1024/resolve/main/model.ckpt -P checkpoints/videocrafter/t2v_v1_1024 # videocrafter1-t2v-1024
 
 
+# ---- StepVideo ----
+mkdir checkpoints/stepvideo/
+cd checkpoints/stepvideo
+huggingface-cli download stepfun-ai/stepvideo-t2v --local-dir ./stepvideo-t2v
+cd ../..
+
+# ---- Wan ----
+mkdir checkpoints/wan/
+cd checkpoints/wan
+huggingface-cli download Wan-AI/Wan2.1-T2V-14B --local-dir ./Wan2.1-T2V-14B
+cd ../..
+
+
+# ---- HunyuanVideo ----
+mkdir checkpoints/hunyuanvideo/
+huggingface-cli download tencent/HunyuanVideo-I2V --local-dir ./checkpoints/hunyuanvideo/HunyuanVideo-I2V
+cd checkpoints/hunyuanvideo/HunyuanVideo-I2V
+huggingface-cli download xtuner/llava-llama-3-8b-v1_1-transformers --local-dir ./text_encoder_i2v
+huggingface-cli download openai/clip-vit-large-patch14 --local-dir ./text_encoder_2
+cd ../..
+
+
 # ---------------------------- I2V ----------------------------
 # ---- Dynamicrafter ----
 mkdir checkpoints/dynamicrafter/
@@ -71,6 +93,11 @@ wget https://huggingface.co/VideoCrafter/Image2Video-512/resolve/main/model.ckpt
 mkdir -p checkpoints/stablediffusion/v2-1_512-ema
 wget https://huggingface.co/stabilityai/stable-diffusion-2-1-base/resolve/main/v2-1_512-ema-pruned.ckpt -P checkpoints/stablediffusion/v2-1_512-ema
 
+# ---- Wan ----
+mkdir -p checkpoints/wan/
+cd checkpoints/wan
+huggingface-cli download Wan-AI/Wan2.1-I2V-14B-720P --local-dir ./Wan2.1-I2V-14B-720P
+cd ../..
 
 # ---------------------------- V2V ----------------------------
 # ---- ModelScope Video-to-Video ----

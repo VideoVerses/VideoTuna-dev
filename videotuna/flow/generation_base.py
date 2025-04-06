@@ -1,4 +1,4 @@
-import logging
+from loguru import logger
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 from colorama import Fore, Style
@@ -14,7 +14,6 @@ from videotuna.base.inference import InferenceBase
 from videotuna.utils.common_utils import instantiate_from_config, print_green, print_yellow
 
 
-mainlogger = logging.getLogger("mainlogger")
 
 class GenerationFlow(TrainBase, InferenceBase):
     """
@@ -53,10 +52,17 @@ class GenerationFlow(TrainBase, InferenceBase):
 
         # instantiate the modules
         self.components = []
-        self.instantiate_first_stage(first_stage_config)
-        self.instantiate_cond_stage(cond_stage_config)
-        self.instantiate_cond_stage_2(cond_stage_2_config)
+        logger.info("creating denoiser")
         self.instantiate_denoiser(denoiser_config)
+
+        logger.info("creating first stage")
+        self.instantiate_first_stage(first_stage_config)
+        logger.info("creating cond stage")
+        self.instantiate_cond_stage(cond_stage_config)
+        logger.info("creating cond stage 2")
+        self.instantiate_cond_stage_2(cond_stage_2_config)
+
+        logger.info("creating scheduler")
         self.scheduler = instantiate_from_config(scheduler_config)
         self.components.append('scheduler')
 
@@ -134,13 +140,13 @@ class GenerationFlow(TrainBase, InferenceBase):
 
         lr = self.learning_rate
         params = list(self.model.parameters())
-        mainlogger.info(f"@Training [{len(params)}] Full Paramters.")
+        logger.info(f"@Training [{len(params)}] Full Paramters.")
 
         ## optimizer
         optimizer = torch.optim.AdamW(params, lr=lr)
         ## lr scheduler
         if self.use_lr_scheduler:
-            mainlogger.info("Setting up LambdaLR scheduler...")
+            logger.info("Setting up LambdaLR scheduler...")
             lr_scheduler = self.configure_lr_schedulers(optimizer)
             return [optimizer], [lr_scheduler]
         
@@ -268,7 +274,8 @@ class GenerationFlow(TrainBase, InferenceBase):
     
 
     def enable_vram_management(self):
-        self = self.cuda()
+        logger.info("enable_vram_management: default moving to cuda")
+        self.cuda()
     
 
     def enable_cpu_offload(self):
@@ -279,29 +286,37 @@ class GenerationFlow(TrainBase, InferenceBase):
         skip_components = ['scheduler']
         # only load models to device if cpu_offload is enabled
         if not self.cpu_offload:
+            logger.info("cpu offload is closed, skipping")
             return
         # offload the unneeded models to cpu
         for model_name in self.components:
             if model_name in skip_components:
+                logger.info(f"{model_name} no need cpu offload, skipping")
                 continue
+
             if model_name not in loadmodel_names:
                 model = getattr(self, model_name)
                 if model is not None:
                     if hasattr(model, "vram_management_enabled") and model.vram_management_enabled:
+                        logger.info(f"{model_name} cpu offloading using offload method")
                         for module in model.modules():
                             if hasattr(module, "offload"):
                                 module.offload()
                     else:
+                        logger.info(f"{model_name} cpu offloading using to cpu method")
                         model.cpu()
+
         # load the needed models to device
         for model_name in loadmodel_names:
             model = getattr(self, model_name)
             if model is not None:
                 if hasattr(model, "vram_management_enabled") and model.vram_management_enabled:
+                    logger.info(f"{model_name} onloading using onload method")
                     for module in model.modules():
                         if hasattr(module, "onload"):
                             module.onload()
                 else:
+                    logger.info(f"{model_name} onloading using to device method")
                     model.to(self.device)
         # fresh the cuda cache
         torch.cuda.empty_cache()

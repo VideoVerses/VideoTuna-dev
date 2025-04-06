@@ -16,14 +16,15 @@ from typing import Optional
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from videotuna.stepvideo.stepvideo.text_encoder.flashattention import FlashSelfAttention
-from videotuna.stepvideo.stepvideo.modules.model import RMSNorm
-from videotuna.stepvideo.stepvideo.text_encoder.tokenizer import LLaMaEmbedding, Wrapped_StepChatTokenizer
-from videotuna.stepvideo.stepvideo.utils import with_empty_init
+from .flashattention import FlashSelfAttention
+from ..modules.model import RMSNorm
+from .tokenizer import LLaMaEmbedding, Wrapped_StepChatTokenizer
+from ..utils import with_empty_init
 from safetensors.torch import load_file
 from transformers.modeling_utils import PretrainedConfig, PreTrainedModel
 from einops import rearrange
 import json
+from loguru import logger
 
 
     
@@ -281,8 +282,9 @@ class STEP1TextEncoder(torch.nn.Module):
         super(STEP1TextEncoder, self).__init__()
         self.max_length = max_length
         self.text_tokenizer = Wrapped_StepChatTokenizer(os.path.join(model_dir, 'step1_chat_tokenizer.model'))
+        logger.info("Directly loading STEP1TextEncoder weights")
         text_encoder = Step1Model.from_pretrained(model_dir)
-        self.text_encoder = text_encoder.eval().to(torch.bfloat16)
+        self.text_encoder = text_encoder.to(torch.bfloat16)
         
     @torch.no_grad
     def forward(self, prompts, with_mask=True, max_length=None, device='cuda'):

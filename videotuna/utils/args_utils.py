@@ -2,27 +2,31 @@ import argparse
 import json
 import time
 from colorama import Fore, Style
-from omegaconf import OmegaConf
+from omegaconf import OmegaConf, MissingMandatoryValue
 from pathlib import Path
 from typing import Union
 import torch
-
+from enum import Enum
 from pytorch_lightning import Trainer
 from videotuna.utils.lightning_utils import add_trainer_args_to_parser
+from loguru import logger
 
 
-MANDATORY_INFERENCE_ARGS = ["mode", "savedir", "seed", "height", "width", "fps", "n_samples_prompt", "bs", "ddim_steps", "ddim_eta", "unconditional_guidance_scale", "ckpt_path"]
+class VideoMode(Enum):
+    I2V = "i2v"
+    T2V = "t2v"
 
 
-def resolve_dtype(dtype_str):
-    mapping = {
-        "torch.float16": torch.float16,
-        "torch.float32": torch.float32,
-        "torch.float64": torch.float64,
-        "torch.bfloat16": torch.bfloat16,
-    }
-    return mapping.get(dtype_str)
-OmegaConf.register_new_resolver("dtype_resolver", resolve_dtype)
+MANDATORY_INFERENCE_ARGS = ["mode", 
+                            "savedir", 
+                            "seed",
+                            "height", 
+                            "width", 
+                            "savefps",
+                            "n_samples_prompt", 
+                            "bs", 
+                            "unconditional_guidance_scale", 
+                            "ckpt_path"]
 
 
 def prepare_train_args(parser: argparse.Namespace):
@@ -51,6 +55,14 @@ def prepare_train_args(parser: argparse.Namespace):
     return args, config
 
 
+# omegaconf has bug, does not work as expected
+def path_exists(cfg, path):
+    try:
+        OmegaConf.select(cfg, path, throw_on_missing=True)
+        return True
+    except MissingMandatoryValue:
+        return False
+
 def prepare_inference_args(args: argparse.Namespace, config: OmegaConf):
     """
     Prepare the arguments by updating the config with the command line arguments.
@@ -60,23 +72,48 @@ def prepare_inference_args(args: argparse.Namespace, config: OmegaConf):
     :return: The updated config object.
     """
 
+    # update the config with the command line arguments
     inference_config = config.pop("inference", OmegaConf.create())
     for k, v in vars(args).items():
         if not k in inference_config.keys():
             inference_config[k] = v
-        
-        # update the config with the command line arguments
-        if k in MANDATORY_INFERENCE_ARGS and v is not None:
-            inference_config[k] = v
-
+        else:
+            if v is not None:
+                inference_config[k] = v
+                
     check_args(inference_config)
-
     inference_config.savedir = process_savedir(inference_config.savedir)    
     config.inference = inference_config
-
     print_inference_config(inference_config)
-    return config
 
+
+    #update flow config with inference mapping config
+    if OmegaConf.select(config, 'inference.mapping') is not None:
+        for source_path, target_path in config.inference.mapping.items():
+            if not path_exists(config, source_path):
+                raise ValueError(f"Error: invalid mapping {source_path} not exists")
+            if not path_exists(config, target_path):
+                raise ValueError(f"Error: invalid mapping {target_path} not exists")
+            
+            value = OmegaConf.select(config, source_path)
+            if value is not None:
+                OmegaConf.update(config, target_path, value)
+                logger.info(f"update {target_path} by {source_path} value: {value}")
+
+    logger.info(f"All Config: {OmegaConf.to_yaml(config)}")
+    # resolve interpolation first
+    def resolve_dtype(dtype_str):
+        mapping = {
+            "torch.float16": torch.float16,
+            "torch.float32": torch.float32,
+            "torch.float64": torch.float64,
+            "torch.bfloat16": torch.bfloat16,
+        }
+        return mapping.get(dtype_str)
+    OmegaConf.register_new_resolver("dtype_resolver", resolve_dtype)
+    config = OmegaConf.to_container(config, resolve=True)
+    config = OmegaConf.create(config, flags={"allow_objects": True})
+    return config
 
 def check_args(inference_config: OmegaConf):
     """

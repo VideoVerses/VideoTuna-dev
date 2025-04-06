@@ -4,6 +4,8 @@ from einops import rearrange
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from pathlib import Path
+from loguru import logger
 
 from diffusers.models import ModelMixin
 from diffusers.configuration_utils import ConfigMixin, register_to_config
@@ -18,7 +20,7 @@ from .posemb_layers import apply_rotary_emb
 from .mlp_layers import MLP, MLPEmbedder, FinalLayer
 from .modulate_layers import ModulateDiT, modulate, apply_gate, ckpt_wrapper
 from .token_refiner import SingleTokenRefiner
-
+from ..constants import PROMPT_TEMPLATE, NEGATIVE_PROMPT, PRECISION_TO_TYPE, NEGATIVE_PROMPT_I2V
 
 class MMDoubleStreamBlock(nn.Module):
     """
@@ -459,7 +461,6 @@ class MMSingleStreamBlock(nn.Module):
         else:
             return x + apply_gate(output, gate=mod_gate)
 
-
 class HYVideoDiffusionTransformer(ModelMixin, ConfigMixin):
     """
     HunyuanVideo Transformer backbone
@@ -533,6 +534,7 @@ class HYVideoDiffusionTransformer(ModelMixin, ConfigMixin):
         use_attention_mask: bool = True,
         dtype: Optional[torch.dtype] = None,
         device: Optional[torch.device] = None,
+        #below args
         i2v_condition_type: str = "token_replace",
         text_states_dim: int = 4096,
         text_states_dim_2: int = 768,
@@ -876,3 +878,117 @@ HUNYUAN_VIDEO_CONFIG = {
         "mlp_width_ratio": 4,
     },
 }
+
+
+class HYVideoDiffusionTransformerWrapper(nn.Module):
+    def __init__(self,
+                device: str = 'cuda',
+                i2v_mode: bool = True,
+                i2v_condition_type: str = 'token_replace',
+                precision: str = 'bf16',
+                latent_channels: int = 16,
+                embedded_cfg_scale: float = 6.0,
+                model: str = 'HYVideo-T/2',
+                gradient_checkpoint: bool = False,
+                gradient_checkpoint_layers: int = -1,
+                text_states_dim: int = 4096,
+                text_states_dim_2: int = 768,
+                ckpt_path: str = None,
+                dit_weight: str = None,
+                i2v_dit_weight: str = None,
+                model_resolution: str = '720p',
+                load_key: str = 'module',
+                *args, 
+                **kwargs):
+        super().__init__(*args, **kwargs)
+
+        factor_kwargs = {"device": device, "dtype": PRECISION_TO_TYPE[precision]}
+        if i2v_mode and i2v_condition_type == "latent_concat":
+            in_channels = latent_channels * 2 + 1
+        elif i2v_mode and i2v_condition_type == "token_replace":
+            in_channels = latent_channels
+        else:
+            in_channels = latent_channels
+        out_channels = latent_channels
+        if embedded_cfg_scale:
+            factor_kwargs["guidance_embed"] = True
+
+        assert model in HUNYUAN_VIDEO_CONFIG.keys(), f"invalid model: {model}"
+        self.model = HYVideoDiffusionTransformer(
+            gradient_checkpoint=gradient_checkpoint,
+            gradient_checkpoint_layers=gradient_checkpoint_layers,
+            in_channels=in_channels,
+            out_channels=out_channels,
+            text_states_dim=text_states_dim,
+            text_states_dim_2=text_states_dim_2,
+            **HUNYUAN_VIDEO_CONFIG[model],
+            **factor_kwargs,
+        )
+        self.dit_weight = dit_weight
+        self.ckpt_path = ckpt_path
+        self.i2v_dit_weight = i2v_dit_weight
+        self.model_resolution = model_resolution
+        self.load_key = load_key
+        self.i2v_mode = i2v_mode
+        self.device = device
+
+
+    def load_weight(self):
+        load_key = self.load_key
+        if self.i2v_mode:
+            dit_weight = Path(self.i2v_dit_weight)
+        else:
+            dit_weight = Path(self.dit_weight)
+
+        if dit_weight is None:
+            model_dir = self.ckpt_path / f"t2v_{self.model_resolution}"
+            files = list(model_dir.glob("*.pt"))
+            if len(files) == 0:
+                raise ValueError(f"No model weights found in {model_dir}")
+            if str(files[0]).startswith("pytorch_model_"):
+                model_path = dit_weight / f"pytorch_model_{load_key}.pt"
+                bare_model = True
+            elif any(str(f).endswith("_model_states.pt") for f in files):
+                files = [f for f in files if str(f).endswith("_model_states.pt")]
+                model_path = files[0]
+                if len(files) > 1:
+                    logger.warning(f"Multiple model weights found in {dit_weight}, using {model_path}")
+                bare_model = False
+            else:
+                raise ValueError(f"Invalid model path: {dit_weight} with unrecognized weight format")
+        else:
+            if dit_weight.is_dir():
+                files = list(dit_weight.glob("*.pt"))
+                if len(files) == 0:
+                    raise ValueError(f"No model weights found in {dit_weight}")
+                if str(files[0]).startswith("pytorch_model_"):
+                    model_path = dit_weight / f"pytorch_model_{load_key}.pt"
+                    bare_model = True
+                elif any(str(f).endswith("_model_states.pt") for f in files):
+                    files = [f for f in files if str(f).endswith("_model_states.pt")]
+                    model_path = files[0]
+                    if len(files) > 1:
+                        logger.warning(f"Multiple model weights found in {dit_weight}, using {model_path}")
+                    bare_model = False
+                else:
+                    raise ValueError(f"Invalid model path: {dit_weight} with unrecognized weight format")
+            elif dit_weight.is_file():
+                model_path = dit_weight
+                bare_model = "unknown"
+            else:
+                raise ValueError(f"Invalid model path: {dit_weight}")
+
+        if not model_path.exists():
+            raise ValueError(f"model_path not exists: {model_path}")
+        logger.info(f"Loading torch model {model_path}...")
+        state_dict = torch.load(model_path, map_location=lambda storage, loc: storage)
+
+        if bare_model == "unknown" and ("ema" in state_dict or "module" in state_dict):
+            bare_model = False
+        if bare_model is False:
+            if load_key in state_dict:
+                state_dict = state_dict[load_key]
+            else:
+                raise KeyError(f"Missing key: `{load_key}` in the checkpoint: {model_path}")
+        self.model.load_state_dict(state_dict, strict=True)
+        self.model = self.model.to(self.device)

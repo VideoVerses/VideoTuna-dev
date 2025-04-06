@@ -20,7 +20,7 @@ from videotuna.scheduler import DDIMSampler
 from videotuna.utils.args_utils import prepare_inference_args
 from videotuna.utils.common_utils import instantiate_from_config
 from videotuna.flow.generation_base import GenerationFlow
-
+from videotuna.utils.common_utils import monitor_resources
 
 def get_parser():
     parser = argparse.ArgumentParser()
@@ -49,7 +49,7 @@ def get_parser():
     parser.add_argument(
         "--standard_vbench",
         action="store_true",
-        default=False,
+        default=None,
         help="inference standard vbench prompts",
     )
     #
@@ -93,7 +93,7 @@ def get_parser():
     parser.add_argument(
         "--uncond_prompt",
         type=str,
-        default="",
+        default=None,
         help="unconditional prompts, or negative prompts",
     )
     parser.add_argument(
@@ -112,7 +112,7 @@ def get_parser():
     parser.add_argument(
         "--multiple_cond_cfg",
         action="store_true",
-        default=False,
+        default=None,
         help="i2v: use multi-condition cfg or not",
     )
     parser.add_argument(
@@ -124,25 +124,25 @@ def get_parser():
     parser.add_argument(
         "--timestep_spacing",
         type=str,
-        default="uniform",
+        default=None,
         help="The way the timesteps should be scaled. Refer to Table 2 of the [Common Diffusion Noise Schedules and Sample Steps are Flawed](https://huggingface.co/papers/2305.08891) for more information.",
     )
     parser.add_argument(
         "--guidance_rescale",
         type=float,
-        default=0.0,
+        default=None,
         help="guidance rescale in [Common Diffusion Noise Schedules and Sample Steps are Flawed](https://huggingface.co/papers/2305.08891)",
     )
     parser.add_argument(
         "--loop",
         action="store_true",
-        default=False,
+        default=None,
         help="generate looping videos or not",
     )
     parser.add_argument(
         "--gfi",
         action="store_true",
-        default=False,
+        default=None,
         help="generate generative frame interpolation (gfi) or not",
     )
     # lora args
@@ -153,7 +153,31 @@ def get_parser():
         help="[Optional] checkpoint path for lora model. ",
     )
     #
-    parser.add_argument("--savefps", type=str, default=10, help="video fps to generate")
+    parser.add_argument("--savefps", type=str, default=None, help="video fps to generate")
+    parser.add_argument(
+        "--time_shift", 
+        type=float, 
+        default=None, 
+        help="time shift",
+    )
+    parser.add_argument(
+        "--num_inference_steps", 
+        type=int, 
+        default=None, 
+        help="sampling steps",
+    )
+    parser.add_argument(
+        "--dit_weight", 
+        type=str, 
+        default=None, 
+        help="hunyuan dit weight",
+    )
+    parser.add_argument(
+        "--i2v_resolution", 
+        type=str, 
+        default=None, 
+        help="target resolution",
+    )
     return parser
 
 
@@ -165,10 +189,6 @@ def run_inference(args, gpu_num=1, rank=0, **kwargs):
     assert Path(args.config).exists(), f"Error: config file {args.config} NOT Found!"
     config = OmegaConf.load(args.config)
     config = prepare_inference_args(args, config)
-
-    # resolve interpolation first
-    config = OmegaConf.to_container(config, resolve=True)
-    config = OmegaConf.create(config, flags={"allow_objects": True})
     
     inference_config = config.pop("inference", OmegaConf.create(flags={"allow_objects": True}))
     seed_everything(inference_config.seed)
@@ -184,7 +204,8 @@ def run_inference(args, gpu_num=1, rank=0, **kwargs):
     flow.eval()
 
     # 2. flow inference
-    flow.inference(inference_config)
+    decorated_inference = monitor_resources(return_metrics=True)(flow.inference)
+    metrics = decorated_inference(inference_config) 
 
 
 if __name__ == "__main__":

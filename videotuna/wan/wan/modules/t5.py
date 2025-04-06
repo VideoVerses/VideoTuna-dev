@@ -1,6 +1,6 @@
 # Modified from transformers.models.t5.modeling_t5
 # Copyright 2024-2025 The Alibaba Wan Team Authors. All rights reserved.
-import logging
+from loguru import logger
 import math
 from typing import Union
 
@@ -412,66 +412,6 @@ class T5Model(nn.Module):
         x = self.head(x)
         return x
 
-
-def _t5(name,
-        encoder_only=False,
-        decoder_only=False,
-        return_tokenizer=False,
-        tokenizer_kwargs={},
-        dtype=torch.float32,
-        device='cpu',
-        **kwargs):
-    # sanity check
-    assert not (encoder_only and decoder_only)
-
-    # params
-    if encoder_only:
-        model_cls = T5Encoder
-        kwargs['vocab'] = kwargs.pop('vocab_size')
-        kwargs['num_layers'] = kwargs.pop('encoder_layers')
-        _ = kwargs.pop('decoder_layers')
-    elif decoder_only:
-        model_cls = T5Decoder
-        kwargs['vocab'] = kwargs.pop('vocab_size')
-        kwargs['num_layers'] = kwargs.pop('decoder_layers')
-        _ = kwargs.pop('encoder_layers')
-    else:
-        model_cls = T5Model
-
-    # init model
-    with torch.device(device):
-        model = model_cls(**kwargs)
-
-    # set device
-    model = model.to(dtype=dtype, device=device)
-
-    # init tokenizer
-    if return_tokenizer:
-        from .tokenizers import HuggingfaceTokenizer
-        tokenizer = HuggingfaceTokenizer(f'google/{name}', **tokenizer_kwargs)
-        return model, tokenizer
-    else:
-        return model
-
-
-def umt5_xxl(**kwargs):
-    if 'dtype' in kwargs and isinstance(kwargs['dtype'], str):
-        kwargs['dtype'] = getattr(torch, kwargs['dtype'])
-    cfg = dict(
-        vocab_size=256384,
-        dim=4096,
-        dim_attn=4096,
-        dim_ffn=10240,
-        num_heads=64,
-        encoder_layers=24,
-        decoder_layers=24,
-        num_buckets=32,
-        shared_pos=False,
-        dropout=0.1)
-    cfg.update(**kwargs)
-    return _t5('umt5-xxl', **cfg)
-
-
 class T5EncoderModel:
 
     def __init__(
@@ -482,22 +422,15 @@ class T5EncoderModel:
         checkpoint_path=None,
         tokenizer_path=None,
         shard_fn=None,
-        model:Union[T5Encoder, T5Decoder, T5Model]=None
+        model:T5Encoder=None
     ):
         self.text_len = text_len
         self.dtype = dtype
         self.device = device
         self.tokenizer_path = tokenizer_path
-
-        # init model
-        logging.info(f'loading {checkpoint_path}')
-        model.load_state_dict(torch.load(checkpoint_path, map_location='cpu'))
-        self.model = model
-        if shard_fn is not None:
-            self.model = shard_fn(self.model, sync_module_states=False)
-        else:
-            self.model.to(self.device)
-        # init tokenizer
+        self.checkpoint_path = checkpoint_path
+        self.shard_fn = shard_fn
+        self.model = model.to(dtype=self.dtype)
         self.tokenizer = HuggingfaceTokenizer(
             name=tokenizer_path, seq_len=text_len, clean='whitespace')
 
@@ -510,4 +443,14 @@ class T5EncoderModel:
         seq_lens = mask.gt(0).sum(dim=1).long()
         context = self.model(ids, mask)
         return [u[:v] for u, v in zip(context, seq_lens)]
-umt5_xxl
+
+    def load_weight(self):
+        logger.info(f'loading T5EncoderModel from ckpt_path: {self.checkpoint_path}')
+        self.model.load_state_dict(torch.load(self.checkpoint_path, map_location='cpu'))
+        logger.info(f'loading T5EncoderModel from ckpt_path: {self.checkpoint_path} finished')
+
+        if self.shard_fn is not None:
+            logger.info(f'shard T5EncoderModel')
+            self.model = self.shard_fn(self.model, sync_module_states=False)
+        else:
+            self.model = self.model.to(self.device).to(self.dtype)

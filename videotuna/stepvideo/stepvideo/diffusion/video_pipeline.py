@@ -10,14 +10,14 @@ from diffusers.pipelines.pipeline_utils import DiffusionPipeline
 from diffusers.utils import BaseOutput
 import asyncio
 
-from videotuna.stepvideo.stepvideo.modules.model import StepVideoModel
-from videotuna.stepvideo.stepvideo.diffusion.scheduler import FlowMatchDiscreteScheduler
-from videotuna.stepvideo.stepvideo.utils import VideoProcessor, with_empty_init
+from ..modules.model import StepVideoModel
+from .scheduler import FlowMatchDiscreteScheduler
+from ..utils import VideoProcessor, with_empty_init
 import os
 
 from transformers.models.bert.modeling_bert import BertEmbeddings
-from videotuna.stepvideo.stepvideo.modules.model import RMSNorm
-from videotuna.stepvideo.stepvideo.vae.vae import CausalConv, CausalConvAfterNorm, Upsample2D
+from ..modules.model import RMSNorm
+from ..vae.vae import CausalConv, CausalConvAfterNorm, Upsample2D
 
 def cast_to(weight, dtype, device):
     r = torch.empty_like(weight, dtype=dtype, device=device)
@@ -224,7 +224,7 @@ class StepVideoPipeline(DiffusionPipeline):
                 offload_dtype=dtype,
                 offload_device="cpu",
                 onload_dtype=dtype,
-                onload_device=self.device,
+                onload_device=self.device_type,
                 computation_dtype=self.torch_dtype,
                 computation_device=self.device_type,
             ),

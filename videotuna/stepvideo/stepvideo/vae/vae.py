@@ -14,7 +14,8 @@ import torch
 from einops import rearrange
 from torch import nn
 from torch.nn import functional as F
-from videotuna.stepvideo.stepvideo.utils import with_empty_init
+from loguru import logger
+from ..utils import with_empty_init
 
 
 def base_group_norm(x, norm_layer, act_silu=False, channel_last=False):
@@ -902,6 +903,7 @@ class AutoencoderKL(nn.Module):
         weight_dict={},
         world_size=1,
         version=1,
+        torch_dtype: torch.dtype = torch.bfloat16 
     ):
         super().__init__()
 
@@ -923,14 +925,20 @@ class AutoencoderKL(nn.Module):
             num_res_blocks=num_res_blocks,
             version=version,
         )
-
-        if model_path is not None:
-            weight_dict = self.init_from_ckpt(model_path)
+        self.world_size = world_size
+        self.model_path = model_path
+        self.torch_dtype = torch_dtype
+    
+    def load_weight(self):
+        logger.info("AutoencoderKL: start load weight")
+        if self.model_path is not None:
+            weight_dict = self.init_from_ckpt(self.model_path)
         if len(weight_dict) != 0:
             self.load_from_dict(weight_dict)
         self.convert_channel_last()
+        self.to(self.torch_dtype)
+        logger.info("AutoencoderKL: end load weight")
 
-        self.world_size = world_size
 
     def init_from_ckpt(self, model_path):
         from safetensors import safe_open

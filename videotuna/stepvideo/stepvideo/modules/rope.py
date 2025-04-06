@@ -1,5 +1,5 @@
 import torch
-from stepvideo.parallel import get_sequence_parallel_world_size, get_sequence_parallel_rank
+from videotuna.stepvideo.stepvideo.parallel import get_sequence_parallel_world_size, get_sequence_parallel_rank
 
 
 class RoPE1D:

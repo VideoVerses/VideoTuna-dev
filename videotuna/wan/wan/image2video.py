@@ -20,7 +20,7 @@ from tqdm import tqdm
 from .distributed.fsdp import shard_model
 from .modules.clip import CLIPModel, XLMRobertaCLIP
 from .modules.model import WanModel
-from .modules.t5 import T5Encoder, T5Decoder, T5Model, T5EncoderModel
+from .modules.t5 import T5Encoder, T5EncoderModel
 from .modules.vae import WanVAE, WanVAE_
 from .utils.fm_solvers import (FlowDPMSolverMultistepScheduler,
                                get_sampling_sigmas, retrieve_timesteps)
@@ -39,8 +39,9 @@ class WanI2V:
         dit_fsdp=False,
         use_usp=False,
         t5_cpu=False,
+        init_on_cpu=True,
         first_stage_model: WanVAE_= None ,
-        cond_stage_model: Union[T5Encoder, T5Decoder, T5Model]=None,
+        cond_stage_model: T5Encoder=None,
         cond_stage_2_model:XLMRobertaCLIP=None,
         denoiser: WanModel=None,
     ):
@@ -72,10 +73,11 @@ class WanI2V:
         self.rank = rank
         self.use_usp = use_usp
         self.t5_cpu = t5_cpu
-
+        self.t5_fsdp = t5_fsdp
+        self.dit_fsdp = dit_fsdp
         self.num_train_timesteps = config.num_train_timesteps
         self.param_dtype = config.param_dtype
-
+        
         shard_fn = partial(shard_model, device_id=device_id)
         self.text_encoder : T5EncoderModel = T5EncoderModel(
             text_len=config.text_len,
@@ -87,6 +89,7 @@ class WanI2V:
             model=cond_stage_model
         )
 
+        #vae
         self.vae_stride = config.vae_stride
         self.patch_size = config.patch_size
         self.vae: WanVAE = WanVAE(
@@ -94,6 +97,7 @@ class WanI2V:
             vae_pth=os.path.join(checkpoint_dir, config.vae_checkpoint),
             device=self.device)
 
+        #clip
         self.clip = CLIPModel(
             dtype=config.clip_dtype,
             device=self.device,
@@ -103,29 +107,13 @@ class WanI2V:
             model=cond_stage_2_model)
 
 
+        #denoiser
         self.model : WanModel = denoiser
-        self.model.eval().requires_grad_(False)
-
-        if use_usp:
-            from xfuser.core.distributed import \
-                get_sequence_parallel_world_size
-
-            from .distributed.xdit_context_parallel import (usp_attn_forward,
-                                                            usp_dit_forward)
-            for block in self.model.blocks:
-                block.self_attn.forward = types.MethodType(
-                    usp_attn_forward, block.self_attn)
-            self.model.forward = types.MethodType(usp_dit_forward, self.model)
-            self.sp_size = get_sequence_parallel_world_size()
-        else:
-            self.sp_size = 1
-
-        if dist.is_initialized():
-            dist.barrier()
-        if dit_fsdp:
-            self.model = shard_fn(self.model)
-
+        self.shard_fn = shard_fn
         self.sample_neg_prompt = config.sample_neg_prompt
+        self.init_on_cpu = init_on_cpu
+        if t5_fsdp or dit_fsdp or use_usp:
+            self.init_on_cpu = False
 
     def generate(self,
                  input_prompt,
@@ -174,6 +162,7 @@ class WanI2V:
                 - N: Number of frames (81)
                 - H: Frame height (from max_area)
                 - W: Frame width from max_area)
+
         """
         img = TF.to_tensor(img).sub_(0.5).div_(0.5).to(self.device)
 
@@ -346,3 +335,33 @@ class WanI2V:
             dist.barrier()
 
         return videos[0] if self.rank == 0 else None
+    
+    def load_weight(self):
+        self.text_encoder.load_weight()
+        self.vae.load_weight()
+        self.clip.load_weight()
+        #denoiser use from_pretrained, no need load again
+        if self.use_usp:
+            from xfuser.core.distributed import \
+                get_sequence_parallel_world_size
+
+            from .distributed.xdit_context_parallel import (usp_attn_forward,
+                                                            usp_dit_forward)
+            for block in self.model.blocks:
+                block.self_attn.forward = types.MethodType(
+                    usp_attn_forward, block.self_attn)
+            self.model.forward = types.MethodType(usp_dit_forward, self.model)
+            self.sp_size = get_sequence_parallel_world_size()
+        else:
+            self.sp_size = 1
+
+        if dist.is_initialized():
+            dist.barrier()
+        if self.dit_fsdp:
+            self.model = self.shard_fn(self.model)
+        else:
+            if not self.init_on_cpu:
+                self.model = self.model.to(self.device)
+
+    def enable_vram_management(self):
+        pass

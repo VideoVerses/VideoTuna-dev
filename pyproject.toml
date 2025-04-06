@@ -63,6 +63,8 @@ hpsv2 = {git = "https://github.com/tgxs002/HPSv2.git"}
 backports-tarfile = "^1.2.0"
 swissarmytransformer = {git = "https://github.com/JingyeChen/SwissArmyTransformer"}
 pydantic-settings = "^2.8.0"
+xfuser = "^0.4.1"
+dashscope = "^1.23.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.0.0"
@@ -86,6 +88,10 @@ format-check = 'scripts:code_format_check'
 lint = 'scripts:lint'
 test = 'scripts:test'
 type-check = 'scripts:type_check'
+inference-stepvideo-t2v-544x992 = 'scripts:inference_stepvideo_t2v_544x992'
+inference-wanvideo-i2v-720p = 'scripts:inference_wanvideo_i2v_720p'
+inference-wanvideo-t2v-720p = 'scripts:inference_wanvideo_t2v_720p'
+inference-hunyuan-i2v-720p = 'scripts:inference_hunyuan_i2v_720p'
 inference-cogvideo-i2v-diffusers = 'scripts:inference_cogvideo_i2v_diffusers'
 inference-cogvideo-i2v-lora = 'scripts:inference_cogvideo_i2v_lora'
 inference-cogvideo-lora = 'scripts:inference_cogvideo_lora'

@@ -14,9 +14,9 @@ import torch
 import torch.nn as nn
 from typing import Optional
 from einops import rearrange
-from stepvideo.modules.rope import RoPE3D
-from stepvideo.modules.attentions import Attention
-from stepvideo.modules.normalization import RMSNorm
+from .rope import RoPE3D
+from .attentions import Attention
+from .normalization import RMSNorm
 
 
 class SelfAttention(Attention):
