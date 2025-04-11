@@ -158,6 +158,7 @@ def get_parser():
     )
     #
     parser.add_argument("--savefps", type=str, default=10, help="video fps to generate")
+    parser.add_argument("--denoiser_precision", type=str, default="fp32", help="precision of denoiser model")
     return parser
 
 
@@ -170,6 +171,8 @@ def load_model(args, cuda_idx=0):
     model_config = config.pop("model", OmegaConf.create())
     if args.lorackpt is not None:
         model_config["params"]["lora_args"] = {"lora_ckpt": args.lorackpt}
+    
+    model_config["params"]["denoiser_config"]["params"]["load_dtype"] = args.denoiser_precision
     model = instantiate_from_config(model_config)
     model = model.cuda(cuda_idx)
     # load weights
@@ -321,6 +324,7 @@ def run_inference_cogvideo(args, gpu_num=1, rank=0, **kwargs):
                     height=args.height,
                     width=args.width,
                     num_frames=49,
+                    num_inference_steps=args.ddim_steps,
                     num_videos_per_prompt=args.n_samples_prompt,
                     guidance_scale=args.unconditional_guidance_scale,
                 )

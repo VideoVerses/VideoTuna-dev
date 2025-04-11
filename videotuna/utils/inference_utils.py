@@ -33,6 +33,7 @@ def get_target_filelist(data_dir, ext):
     ]
     if len(file_list) == 0:
         raise ValueError(f"No file with extensions {ext} found in {data_dir}.")
+    file_list.sort()
     return file_list
 
 

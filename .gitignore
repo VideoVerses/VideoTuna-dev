@@ -18,6 +18,7 @@ samples/
 Dataset/
 output/
 outputs/
+data
 
 HPSv2/
 SwissArmyTransformer/

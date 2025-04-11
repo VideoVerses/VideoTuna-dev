@@ -163,15 +163,20 @@ def log_local(batch_logs, save_dir, filename, save_fps=10, rescale=True):
 
     for key in batch_logs:
         value = batch_logs[key]
+        
+        if isinstance(value, torch.Tensor) and (value.ndim == 6):
+            assert(value.size()[0] == 1)
+            value = value[0]
+
         if isinstance(value, list) and isinstance(value[0], str):
-            ## a batch of captions
+            # save a batch of captions
             path = os.path.join(save_dir, "%s-%s.txt" % (key, filename))
             with open(path, "w") as f:
                 for i, txt in enumerate(value):
                     f.write(f"idx={i}, txt={txt}\n")
                 f.close()
         elif isinstance(value, torch.Tensor) and value.dim() == 5:
-            ## save video grids
+            # save video grids
             video = value  # b,c,t,h,w
             ## only save grayscale or rgb mode
             if video.shape[1] != 1 and video.shape[1] != 3:
@@ -193,15 +198,15 @@ def log_local(batch_logs, save_dir, filename, save_fps=10, rescale=True):
                 path, grid, fps=save_fps, video_codec="h264", options={"crf": "10"}
             )
 
-            ## save frame sheet
+            # save video frame sheet
             img = value
             video_frames = rearrange(img, "b c t h w -> (b t) c h w")
             t = img.shape[2]
             grid = torchvision.utils.make_grid(video_frames, nrow=t)
             path = os.path.join(save_dir, "%s-%s.jpg" % (key, filename))
-            # save_img_grid(grid, path, rescale)
+            save_img_grid(grid, path, rescale)
         elif isinstance(value, torch.Tensor) and value.dim() == 4:
-            ## save image grids
+            # save image grids
             img = value
             ## only save grayscale or rgb mode
             if img.shape[1] != 1 and img.shape[1] != 3:
@@ -211,7 +216,7 @@ def log_local(batch_logs, save_dir, filename, save_fps=10, rescale=True):
             path = os.path.join(save_dir, "%s-%s.jpg" % (key, filename))
             save_img_grid(grid, path, rescale)
         else:
-            pass
+            raise ValueError(f"The value of type [{type(value)}[] and key [{key}] does not supported!")
 
 
 def prepare_to_log(batch_logs, max_images=100000, clamp=True):

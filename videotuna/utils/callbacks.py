@@ -175,7 +175,6 @@ class CUDACallback(Callback):
         # Reset the memory use counter
         # lightning update
         gpu_index = trainer.strategy.root_device.index
-        print(f"gpu_index: {gpu_index}")
         torch.cuda.reset_peak_memory_stats(gpu_index)
         torch.cuda.synchronize(gpu_index)
         self.start_time = time.time()
