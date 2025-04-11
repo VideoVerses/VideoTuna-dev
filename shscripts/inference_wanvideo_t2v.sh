@@ -15,6 +15,7 @@
 #     --seed 44 \
 #     --time_shift 3.0 \
 #     --num_inference_steps 50 \
+#     --enable_model_cpu_offload
 
 #720P
 ckpt='checkpoints/wan/Wan2.1-T2V-14B/'
@@ -33,3 +34,4 @@ python3 scripts/inference_new.py \
     --seed 44 \
     --time_shift 5.0 \
     --num_inference_steps 50 \
+    --enable_model_cpu_offload

@@ -2,7 +2,7 @@ import torch
 import pytorch_lightning as pl
 from typing import Any, Dict, List, Optional, Union
 
-from src.utils.common_utils import instantiate_from_config
+from videotuna.utils.common_utils import instantiate_from_config
 
 
 class DiffusionWrapper(pl.LightningModule):

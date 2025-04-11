@@ -9,8 +9,8 @@ import torch.nn.functional as F
 import pytorch_lightning as pl
 from torch.optim.lr_scheduler import CosineAnnealingLR, LambdaLR
 
-from videotuna.base.train import TrainBase
-from videotuna.base.inference import InferenceBase
+from videotuna.flow.train_base import TrainBase
+from videotuna.flow.inference_base import InferenceBase
 from videotuna.utils.common_utils import instantiate_from_config, print_green, print_yellow
 
 
@@ -282,7 +282,7 @@ class GenerationFlow(TrainBase, InferenceBase):
         self.cpu_offload = True
 
 
-    def load_models_to_device(self, loadmodel_names=[]):
+    def load_models_to_device(self, loadmodel_names=[], device='cuda'):
         skip_components = ['scheduler']
         # only load models to device if cpu_offload is enabled
         if not self.cpu_offload:
@@ -317,7 +317,7 @@ class GenerationFlow(TrainBase, InferenceBase):
                             module.onload()
                 else:
                     logger.info(f"{model_name} onloading using to device method")
-                    model.to(self.device)
+                    model.to(device)
         # fresh the cuda cache
         torch.cuda.empty_cache()
     

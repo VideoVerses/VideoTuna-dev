@@ -1,6 +1,6 @@
 model:
   base_learning_rate: 6e-6
-  target: videotuna.hunyuanvideo.hunyuanvideo.HunyuanVideoWorkFlow
+  target: videotuna.models.hunyuanvideo.hunyuanvideo.HunyuanVideoWorkFlow
   params: 
     # VAE of HunyuanVideo
     first_stage_config:

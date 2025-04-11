@@ -14,8 +14,8 @@ from tqdm import tqdm, trange
 
 sys.path.insert(0, os.getcwd())
 sys.path.insert(1, f"{os.getcwd()}/src")
-from videotuna.base.ddim import DDIMSampler
-from videotuna.base.ddim_multiplecond import DDIMSampler as DDIMSampler_multicond
+from videotuna.flow.base.ddim import DDIMSampler
+from videotuna.flow.base.ddim_multiplecond import DDIMSampler as DDIMSampler_multicond
 from videotuna.utils.common_utils import instantiate_from_config
 from videotuna.utils.inference_utils import (
     load_image_batch,

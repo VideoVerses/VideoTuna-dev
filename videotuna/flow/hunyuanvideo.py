@@ -10,18 +10,19 @@ from loguru import logger
 
 import torch
 import torch.distributed as dist
-from videotuna.hunyuan.hyvideo_i2v.constants import PROMPT_TEMPLATE, NEGATIVE_PROMPT, PRECISION_TO_TYPE, NEGATIVE_PROMPT_I2V
-from videotuna.hunyuan.hyvideo_i2v.vae.autoencoder_kl_causal_3d import AutoencoderKLCausal3DWrapper
-from videotuna.hunyuan.hyvideo_i2v.modules.models import HYVideoDiffusionTransformerWrapper
-from videotuna.hunyuan.hyvideo_i2v.text_encoder import TextEncoder, TextEncoderWrapper
-from videotuna.hunyuan.hyvideo_i2v.utils.data_utils import align_to, get_closest_ratio, generate_crop_size_list
-from videotuna.hunyuan.hyvideo_i2v.utils.lora_utils import load_lora_for_pipeline
-from videotuna.hunyuan.hyvideo_i2v.modules.posemb_layers import get_nd_rotary_pos_embed
-from videotuna.hunyuan.hyvideo_i2v.modules.fp8_optimization import convert_fp8_linear
-from videotuna.hunyuan.hyvideo_i2v.diffusion.schedulers import FlowMatchDiscreteScheduler
-from videotuna.hunyuan.hyvideo_i2v.diffusion.pipelines import HunyuanVideoPipeline
-from videotuna.hunyuan.hyvideo_i2v.utils.file_utils import save_videos_grid
+from videotuna.models.hunyuan.hyvideo_i2v.constants import PROMPT_TEMPLATE, NEGATIVE_PROMPT, PRECISION_TO_TYPE, NEGATIVE_PROMPT_I2V
+from videotuna.models.hunyuan.hyvideo_i2v.vae.autoencoder_kl_causal_3d import AutoencoderKLCausal3DWrapper
+from videotuna.models.hunyuan.hyvideo_i2v.modules.models import HYVideoDiffusionTransformerWrapper
+from videotuna.models.hunyuan.hyvideo_i2v.text_encoder import TextEncoder, TextEncoderWrapper
+from videotuna.models.hunyuan.hyvideo_i2v.utils.data_utils import align_to, get_closest_ratio, generate_crop_size_list
+from videotuna.models.hunyuan.hyvideo_i2v.utils.lora_utils import load_lora_for_pipeline
+from videotuna.models.hunyuan.hyvideo_i2v.modules.posemb_layers import get_nd_rotary_pos_embed
+from videotuna.models.hunyuan.hyvideo_i2v.modules.fp8_optimization import convert_fp8_linear
+from videotuna.models.hunyuan.hyvideo_i2v.diffusion.schedulers import FlowMatchDiscreteScheduler
+from videotuna.models.hunyuan.hyvideo_i2v.diffusion.pipelines import HunyuanVideoPipeline
+from videotuna.models.hunyuan.hyvideo_i2v.utils.file_utils import save_videos_grid
 from videotuna.flow.generation_base import GenerationFlow
+from videotuna.utils.common_utils import monitor_resources
 import torchvision.transforms as transforms
 from PIL import Image
 import numpy as np
@@ -469,7 +470,7 @@ class HunyuanVideoFlow(GenerationFlow):
             logger.debug(f"actual_num_frames = {actual_num_frames} > 192, RIFLEx applied with k = {k}")
     
             # Compute positional grids for RIFLEx
-            axes_grids = [torch.arange(size, device=self.device, dtype=torch.float32) for size in rope_sizes]
+            axes_grids = [torch.arange(size, device=self.device_type, dtype=torch.float32) for size in rope_sizes]
             grid = torch.meshgrid(*axes_grids, indexing="ij")
             grid = torch.stack(grid, dim=0)  # [3, t, h, w]
             pos = grid.reshape(3, -1).t()  # [t * h * w, 3]
@@ -515,12 +516,14 @@ class HunyuanVideoFlow(GenerationFlow):
     
         return freqs_cos, freqs_sin
 
-    @torch.no_grad()
-    def inference(
-        self,
-        config : DictConfig,
-        **kwargs,
-    ):
+
+    @monitor_resources(return_metrics=True)
+    def single_inference(self, 
+                         prompt, 
+                         i2v_image_path, 
+                         target_video_length,
+                         generator,
+                         config : DictConfig):
         height=config.height
         width=config.width
         video_length=config.frames
@@ -539,6 +542,140 @@ class HunyuanVideoFlow(GenerationFlow):
         ulysses_degree=config.ulysses_degree
         ring_degree=config.ring_degree
         xdit_adaptive_size=config.xdit_adaptive_size
+        if not isinstance(prompt, str):
+            raise TypeError(f"`prompt` must be a string, but got {type(prompt)}")
+        prompt = [prompt.strip()]
+
+        if negative_prompt is None or negative_prompt == "":
+            negative_prompt = self.default_negative_prompt
+        if guidance_scale == 1.0:
+            negative_prompt = ""
+        if not isinstance(negative_prompt, str):
+            raise TypeError(
+                f"`negative_prompt` must be a string, but got {type(negative_prompt)}"
+            )
+        negative_prompt = [negative_prompt.strip()]
+
+        img_latents = None
+        semantic_images = None
+        if i2v_mode:
+            if i2v_resolution == "720p":
+                bucket_hw_base_size = 960
+            elif i2v_resolution == "540p":
+                bucket_hw_base_size = 720
+            elif i2v_resolution == "360p":
+                bucket_hw_base_size = 480
+            else:
+                raise ValueError(f"i2v_resolution: {i2v_resolution} must be in [360p, 540p, 720p]")
+
+            semantic_images = [Image.open(i2v_image_path).convert('RGB')]
+            origin_size = semantic_images[0].size
+
+            crop_size_list = generate_crop_size_list(bucket_hw_base_size, 32)
+            aspect_ratios = np.array([round(float(h)/float(w), 5) for h, w in crop_size_list])
+            closest_size, closest_ratio = get_closest_ratio(origin_size[1], origin_size[0], aspect_ratios, crop_size_list)
+
+            if ulysses_degree != 1 or ring_degree != 1:
+                closest_size = (height, width)
+                resize_param = min(closest_size)
+                center_crop_param = closest_size
+
+                if xdit_adaptive_size:
+                    original_h, original_w = origin_size[1], origin_size[0]
+                    target_h, target_w = height, width
+
+                    scale_w = target_w / original_w
+                    scale_h = target_h / original_h
+                    scale = max(scale_w, scale_h)
+
+                    new_w = int(original_w * scale)
+                    new_h = int(original_h * scale)
+                    resize_param = (new_h, new_w)
+                    center_crop_param = (target_h, target_w)
+            else:
+                resize_param = min(closest_size)
+                center_crop_param = closest_size
+
+            ref_image_transform = transforms.Compose([
+                transforms.Resize(resize_param),
+                transforms.CenterCrop(center_crop_param),
+                transforms.ToTensor(),
+                transforms.Normalize([0.5], [0.5])
+            ])
+
+            semantic_image_pixel_values = [ref_image_transform(semantic_image) for semantic_image in semantic_images]
+            semantic_image_pixel_values = torch.cat(semantic_image_pixel_values).unsqueeze(0).unsqueeze(2).to(self.device_type)
+
+            with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=True):
+                img_latents = self.pipeline.vae.encode(semantic_image_pixel_values).latent_dist.mode()
+                img_latents.mul_(self.pipeline.vae.config.scaling_factor)
+
+            target_height, target_width = closest_size
+
+        freqs_cos, freqs_sin = self.get_rotary_pos_embed(
+            target_video_length, target_height, target_width
+        )
+        n_tokens = freqs_cos.shape[0]
+
+        debug_str = f"""
+                        height: {target_height}
+                        width: {target_width}
+                video_length: {target_video_length}
+                        prompt: {prompt}
+                    neg_prompt: {negative_prompt}
+                        seed: {seed}
+                infer_steps: {infer_steps}
+        num_videos_per_prompt: {num_videos_per_prompt}
+                guidance_scale: {guidance_scale}
+                    n_tokens: {n_tokens}
+                    flow_shift: {flow_shift}
+    embedded_guidance_scale: {embedded_guidance_scale}
+                i2v_stability: {i2v_stability}"""
+        if ulysses_degree != 1 or ring_degree != 1:
+            debug_str += f"""
+                ulysses_degree: {ulysses_degree}
+                ring_degree: {ring_degree}
+            xdit_adaptive_size: {xdit_adaptive_size}"""
+        logger.debug(debug_str)
+
+        samples = self.pipeline(
+            prompt=prompt,
+            height=target_height,
+            width=target_width,
+            video_length=target_video_length,
+            num_inference_steps=infer_steps,
+            guidance_scale=guidance_scale,
+            negative_prompt=negative_prompt,
+            num_videos_per_prompt=num_videos_per_prompt,
+            generator=generator,
+            output_type="pil",
+            freqs_cis=(freqs_cos, freqs_sin),
+            n_tokens=n_tokens,
+            embedded_guidance_scale=embedded_guidance_scale,
+            data_type="video" if target_video_length > 1 else "image",
+            is_progress_bar=True,
+            vae_ver=self.vae_type,
+            enable_tiling=self.vae_tiling,
+            i2v_mode=i2v_mode,
+            i2v_condition_type=i2v_condition_type,
+            i2v_stability=i2v_stability,
+            img_latents=img_latents,
+            semantic_images=semantic_images,
+        )[0]
+        return samples
+
+    @torch.no_grad()
+    def inference(
+        self,
+        config : DictConfig,
+        **kwargs,
+    ):
+        height=config.height
+        width=config.width
+        video_length=config.frames
+        seed=config.seed
+        batch_size=config.bs
+        num_videos_per_prompt=config.n_samples_prompt
         out_dict = dict()
 
         prompt_list, image_path_list = self.load_inference_inputs(config.prompt_dir, config.mode)
@@ -547,7 +684,7 @@ class HunyuanVideoFlow(GenerationFlow):
     
         # seeds
         seeds = self.set_seed(seed, batch_size, num_videos_per_prompt)
-        generator = [torch.Generator(self.device).manual_seed(seed) for seed in seeds]
+        generator = [torch.Generator(self.device_type).manual_seed(seed) for seed in seeds]
         out_dict["seeds"] = seeds
 
         # video input
@@ -558,139 +695,23 @@ class HunyuanVideoFlow(GenerationFlow):
         out_dict["size"] = (target_height, target_width, target_video_length)
         filenames = self.process_savename(prompt_list, config.n_samples_prompt)
 
+        samples = []
+        gpu = []
+        time = []
         for i, (prompt, i2v_image_path) in enumerate(zip(prompt_list, image_path_list)):
-            if not isinstance(prompt, str):
-                raise TypeError(f"`prompt` must be a string, but got {type(prompt)}")
-            prompt = [prompt.strip()]
+            result_with_metrics = self.single_inference(prompt, i2v_image_path, target_video_length, generator, config)
+            sample = result_with_metrics['result']
+            samples.append(sample)
+            gpu.append(result_with_metrics.get('gpu', -1.0))
+            time.append(result_with_metrics.get('time', -1.0))
 
-            if negative_prompt is None or negative_prompt == "":
-                negative_prompt = self.default_negative_prompt
-            if guidance_scale == 1.0:
-                negative_prompt = ""
-            if not isinstance(negative_prompt, str):
-                raise TypeError(
-                    f"`negative_prompt` must be a string, but got {type(negative_prompt)}"
-                )
-            negative_prompt = [negative_prompt.strip()]
-
-            img_latents = None
-            semantic_images = None
-            if i2v_mode:
-                if i2v_resolution == "720p":
-                    bucket_hw_base_size = 960
-                elif i2v_resolution == "540p":
-                    bucket_hw_base_size = 720
-                elif i2v_resolution == "360p":
-                    bucket_hw_base_size = 480
-                else:
-                    raise ValueError(f"i2v_resolution: {i2v_resolution} must be in [360p, 540p, 720p]")
-
-                semantic_images = [Image.open(i2v_image_path).convert('RGB')]
-                origin_size = semantic_images[0].size
-
-                crop_size_list = generate_crop_size_list(bucket_hw_base_size, 32)
-                aspect_ratios = np.array([round(float(h)/float(w), 5) for h, w in crop_size_list])
-                closest_size, closest_ratio = get_closest_ratio(origin_size[1], origin_size[0], aspect_ratios, crop_size_list)
-
-                if ulysses_degree != 1 or ring_degree != 1:
-                    closest_size = (height, width)
-                    resize_param = min(closest_size)
-                    center_crop_param = closest_size
-
-                    if xdit_adaptive_size:
-                        original_h, original_w = origin_size[1], origin_size[0]
-                        target_h, target_w = height, width
-
-                        scale_w = target_w / original_w
-                        scale_h = target_h / original_h
-                        scale = max(scale_w, scale_h)
-
-                        new_w = int(original_w * scale)
-                        new_h = int(original_h * scale)
-                        resize_param = (new_h, new_w)
-                        center_crop_param = (target_h, target_w)
-                else:
-                    resize_param = min(closest_size)
-                    center_crop_param = closest_size
-
-                ref_image_transform = transforms.Compose([
-                    transforms.Resize(resize_param),
-                    transforms.CenterCrop(center_crop_param),
-                    transforms.ToTensor(),
-                    transforms.Normalize([0.5], [0.5])
-                ])
-
-                semantic_image_pixel_values = [ref_image_transform(semantic_image) for semantic_image in semantic_images]
-                semantic_image_pixel_values = torch.cat(semantic_image_pixel_values).unsqueeze(0).unsqueeze(2).to(self.device)
-
-                with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=True):
-                    img_latents = self.pipeline.vae.encode(semantic_image_pixel_values).latent_dist.mode()
-                    img_latents.mul_(self.pipeline.vae.config.scaling_factor)
-
-                target_height, target_width = closest_size
-
-            freqs_cos, freqs_sin = self.get_rotary_pos_embed(
-                target_video_length, target_height, target_width
-            )
-            n_tokens = freqs_cos.shape[0]
-
-            debug_str = f"""
-                            height: {target_height}
-                            width: {target_width}
-                    video_length: {target_video_length}
-                            prompt: {prompt}
-                        neg_prompt: {negative_prompt}
-                            seed: {seed}
-                    infer_steps: {infer_steps}
-            num_videos_per_prompt: {num_videos_per_prompt}
-                    guidance_scale: {guidance_scale}
-                        n_tokens: {n_tokens}
-                        flow_shift: {flow_shift}
-        embedded_guidance_scale: {embedded_guidance_scale}
-                    i2v_stability: {i2v_stability}"""
-            if ulysses_degree != 1 or ring_degree != 1:
-                debug_str += f"""
-                    ulysses_degree: {ulysses_degree}
-                    ring_degree: {ring_degree}
-                xdit_adaptive_size: {xdit_adaptive_size}"""
-            logger.debug(debug_str)
-
-            start_time = time.time()
-            samples = self.pipeline(
-                prompt=prompt,
-                height=target_height,
-                width=target_width,
-                video_length=target_video_length,
-                num_inference_steps=infer_steps,
-                guidance_scale=guidance_scale,
-                negative_prompt=negative_prompt,
-                num_videos_per_prompt=num_videos_per_prompt,
-                generator=generator,
-                output_type="pil",
-                freqs_cis=(freqs_cos, freqs_sin),
-                n_tokens=n_tokens,
-                embedded_guidance_scale=embedded_guidance_scale,
-                data_type="video" if target_video_length > 1 else "image",
-                is_progress_bar=True,
-                vae_ver=self.vae_type,
-                enable_tiling=self.vae_tiling,
-                i2v_mode=i2v_mode,
-                i2v_condition_type=i2v_condition_type,
-                i2v_stability=i2v_stability,
-                img_latents=img_latents,
-                semantic_images=semantic_images,
-            )[0]
-            out_dict["samples"] = samples
-            out_dict["prompts"] = prompt
-
-            gen_time = time.time() - start_time
-            logger.info(f"Success, time: {gen_time}")
-        
-
-            samples = out_dict['samples']
             # Save samples
             if 'LOCAL_RANK' not in os.environ or int(os.environ['LOCAL_RANK']) == 0:
-                save_videos_grid(samples, f"{config.savedir}/{filenames[i]}.mp4", fps=24)
+                save_videos_grid(sample, f"{config.savedir}/{filenames[i]}.mp4", fps=24)
+        
+        self.save_metrics(gpu=gpu, time=time, config=config, savedir=config.savedir)
+        out_dict['samples'] = samples
+        out_dict['prompts'] = prompt_list
         return out_dict
 
     def check_video_input(self, height, width, video_length):

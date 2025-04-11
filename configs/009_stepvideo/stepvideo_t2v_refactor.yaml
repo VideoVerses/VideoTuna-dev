@@ -7,15 +7,17 @@ flow:
     first_stage_ckpt_path: ${flow.params.ckpt_path}/vae
     cond_stage_ckpt_path: ${flow.params.ckpt_path}/step_llm
     cond_stage_2_ckpt_path: ${flow.params.ckpt_path}/hunyuan_clip
+    enable_model_cpu_offload: True
+    enable_sequential_cpu_offload: False
 
     scheduler_config: 
-      target: videotuna.stepvideo.stepvideo.diffusion.scheduler.FlowMatchDiscreteScheduler
+      target: videotuna.models.stepvideo.stepvideo.diffusion.scheduler.FlowMatchDiscreteScheduler
       use_from_pretrained: True
       params:
         pretrained_model_name_or_path: ${flow.params.scheduler_ckpt_path}
 
     denoiser_config:
-      target: videotuna.stepvideo.stepvideo.modules.model.StepVideoModel
+      target: videotuna.models.stepvideo.stepvideo.modules.model.StepVideoModel
       use_from_pretrained: True
       params:
         pretrained_model_name_or_path: ${flow.params.denoiser_ckpt_path}
@@ -23,20 +25,20 @@ flow:
         attention_type: torch
 
     first_stage_config:
-      target: videotuna.stepvideo.stepvideo.vae.vae.AutoencoderKL
+      target: videotuna.models.stepvideo.stepvideo.vae.vae.AutoencoderKL
       params:
         z_channels: 64
         model_path: ${flow.params.first_stage_ckpt_path}/vae_v2.safetensors
         version: 2
 
     cond_stage_config:
-      target: videotuna.stepvideo.stepvideo.text_encoder.stepllm.STEP1TextEncoder
+      target: videotuna.models.stepvideo.stepvideo.text_encoder.stepllm.STEP1TextEncoder
       params:
         model_dir: ${flow.params.cond_stage_ckpt_path}
         max_length: 320
 
     cond_stage_2_config:
-      target: videotuna.stepvideo.stepvideo.text_encoder.clip.HunyuanClip
+      target: videotuna.models.stepvideo.stepvideo.text_encoder.clip.HunyuanClip
       params:
         model_dir: ${flow.params.cond_stage_2_ckpt_path}
         max_length: 77
@@ -48,7 +50,7 @@ inference:
   seed: 42
   height: 544
   width: 992
-  frames: 204 
+  frames: 51 
   num_inference_steps: 50
   time_shift: 13.0
   unconditional_guidance_scale: 12.0
@@ -58,6 +60,10 @@ inference:
   n_samples_prompt: 1
   bs: 1
   savefps: 28
+  enable_model_cpu_offload: True
+  enable_sequential_cpu_offload: False
 
   mapping:
     inference.ckpt_path : flow.params.ckpt_path
+    inference.enable_model_cpu_offload: flow.params.enable_model_cpu_offload
+    inference.enable_sequential_cpu_offload: flow.params.enable_sequential_cpu_offload

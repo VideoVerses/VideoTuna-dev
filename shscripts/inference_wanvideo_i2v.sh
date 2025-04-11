@@ -14,7 +14,8 @@
 #     --frames 81 \
 #     --seed 44 \
 #     --num_inference_steps 40 \
-#     --time_shift 3.0
+#     --time_shift 3.0 \
+#     --enable_model_cpu_offload
 
 
 
@@ -34,4 +35,5 @@ python3 scripts/inference_new.py \
     --frames 81 \
     --seed 44 \
     --num_inference_steps 40 \
-    --time_shift 5.0
+    --time_shift 5.0 \
+    --enable_model_cpu_offload

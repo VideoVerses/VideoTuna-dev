@@ -2,12 +2,12 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from videotuna.base.utils_diffusion import (
+from videotuna.flow.base.utils_diffusion import (
     make_ddim_sampling_parameters,
     make_ddim_timesteps,
     rescale_noise_cfg,
 )
-from videotuna.lvdm.modules.utils import noise_like
+from videotuna.models.lvdm.modules.utils import noise_like
 
 
 class DDIMSampler(object):

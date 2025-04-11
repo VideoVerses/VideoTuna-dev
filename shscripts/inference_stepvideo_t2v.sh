@@ -13,3 +13,4 @@ python3 scripts/inference_new.py \
     --frames 51 \
     --seed 44 \
     --num_inference_steps 50 \
+    --enable_model_cpu_offload

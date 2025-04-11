@@ -20,12 +20,12 @@ git clone https://huggingface.co/THUDM/CogVideoX1.5-5B-SAT  # This are checkpoin
 # ---- HunyuanVideo (diffusers) ----
 cd VideoTuna   # Make sure you are under the root path of VideoTuna
 python -m pip install "huggingface_hub[cli]"   # You may follow the instructions [here](https://huggingface.co/docs/huggingface_hub/guides/cli).
-huggingface-cli download tencent/HunyuanVideo --local-dir ./checkpoints/hunyuan
-cd checkpoints/hunyuan
+huggingface-cli download tencent/HunyuanVideo --local-dir ./checkpoints/hunyuanvideo/HunyuanVideo
+cd checkpoints/hunyuanvideo/HunyuanVideo
 huggingface-cli download xtuner/llava-llama-3-8b-v1_1-transformers --local-dir ./llava-llama-3-8b-v1_1-transformers
 huggingface-cli download openai/clip-vit-large-patch14 --local-dir ./text_encoder_2
-cd ../..
-python src/hyvideo/utils/preprocess_text_encoder_tokenizer_utils.py --input_dir checkpoints/hunyuan/llava-llama-3-8b-v1_1-transformers --output_dir checkpoints/hunyuan/text_encoder
+cd ../../..
+python videotuna/models/hyvideo/utils/preprocess_text_encoder_tokenizer_utils.py --input_dir checkpoints/hunyuanvideo/HunyuanVideo/llava-llama-3-8b-v1_1-transformers --output_dir checkpoints/hunyuanvideo/HunyuanVideo/text_encoder
 
 # ---- Open-Sora ----
 mkdir -p checkpoints/open-sora/t2v_v10
@@ -69,7 +69,7 @@ cd ../..
 
 
 # ---- HunyuanVideo ----
-mkdir checkpoints/hunyuanvideo/
+mkdir -p checkpoints/hunyuanvideo/
 huggingface-cli download tencent/HunyuanVideo-I2V --local-dir ./checkpoints/hunyuanvideo/HunyuanVideo-I2V
 cd checkpoints/hunyuanvideo/HunyuanVideo-I2V
 huggingface-cli download xtuner/llava-llama-3-8b-v1_1-transformers --local-dir ./text_encoder_i2v
@@ -120,11 +120,16 @@ VideoTuna/
         │   └── CogVideoX-2b/
         │   └── CogVideoX-5b/
         │   └── CogVideoX-5b-I2V/
-        ├── hunyuan/
-        │   └── hunyuan-video-t2v-720p/
-        │   └── llava-llama-3-8b-v1_1-transformers/
-        │   └── text_encoder
-        │   └── text_encoder_2
+        ├── hunyuanvideo/
+        │   ├── HunyuanVideo-I2V/
+        │   │   └── hunyuan-video-i2v-720p/
+        │   │   └── text_encoder_2
+        │   │   └── text_encoder_i2v
+        │   └── HunyuanVideo/
+        │       └── hunyuan-video-t2v-720p/
+        │       └── llava-llama-3-8b-v1_1-transformers/
+        │       └── text_encoder
+        │       └── text_encoder_2
         ├── dynamicrafter/
         │   └── i2v_576x1024/
         │       └── model.ckpt

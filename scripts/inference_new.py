@@ -178,6 +178,26 @@ def get_parser():
         default=None, 
         help="target resolution",
     )
+    parser.add_argument(
+        "--enable_model_cpu_offload", 
+        action="store_true",
+        help="model cpu offload",
+    )
+    parser.add_argument(
+        "--enable_sequential_cpu_offload", 
+        action="store_true",
+        help="seqeuential cpu offload",
+    )
+    parser.add_argument(
+        "--enable_vae_tiling", 
+        action="store_true",
+        help="vae tiling",
+    )
+    parser.add_argument(
+        "--enable_vae_slicing", 
+        action="store_true",
+        help="vae slicing",
+    )
     return parser
 
 
@@ -198,7 +218,7 @@ def run_inference(args, gpu_num=1, rank=0, **kwargs):
     # 1.2 load weight to cpu
     # 1.3 vram management (default to cuda)
     flow_config = config.pop("flow", OmegaConf.create(flags={"allow_objects": True}))
-    flow : GenerationFlow = instantiate_from_config(flow_config)
+    flow : GenerationFlow = instantiate_from_config(flow_config, resolve=True)
     flow.from_pretrained(inference_config.ckpt_path)
     flow.enable_vram_management()
     flow.eval()

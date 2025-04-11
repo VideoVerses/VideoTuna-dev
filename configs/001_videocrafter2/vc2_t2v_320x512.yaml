@@ -2,7 +2,7 @@ model:
   base_learning_rate: 6.0e-06 # 1.5e-04
   scale_lr: False
   # empty_params_only: True # disable this means finetuning all parameters
-  target: videotuna.base.ddpm3d.LVDMFlow
+  target: videotuna.flow.base.ddpm3d.LVDMFlow
   params:
     log_every_t: 200
     first_stage_key: video
@@ -23,14 +23,14 @@ model:
     scale_b: 0.7 # adapt to videocrafter-v2
 
     diffusion_scheduler_config:
-      target: videotuna.base.diffusion_schedulers.LDMScheduler
+      target: videotuna.flow.base.diffusion_schedulers.LDMScheduler
       params:
         timesteps: 1000
         linear_start: 0.00085
         linear_end: 0.012
 
     unet_config:
-      target: videotuna.lvdm.modules.networks.openaimodel3d.UNetModel
+      target: videotuna.models.lvdm.modules.networks.openaimodel3d.UNetModel
       params:
         in_channels: 4
         out_channels: 4
@@ -59,7 +59,7 @@ model:
         addition_attention: true
         fps_cond: true # adapt to videocrafter-v2
     first_stage_config:
-      target: videotuna.lvdm.modules.vae.autoencoder.AutoencoderKL
+      target: videotuna.models.lvdm.modules.vae.autoencoder.AutoencoderKL
       params:
         embed_dim: 4
         monitor: val/rec_loss
@@ -81,7 +81,7 @@ model:
         lossconfig:
           target: torch.nn.Identity
     cond_stage_config:
-      target: videotuna.lvdm.modules.encoders.condition.FrozenOpenCLIPEmbedder
+      target: videotuna.models.lvdm.modules.encoders.condition.FrozenOpenCLIPEmbedder
       params:
         freeze: true
         layer: penultimate
@@ -125,7 +125,7 @@ lightning:
         to_local: True # save videos into files
         log_images_kwargs:
           unconditional_guidance_scale: 12 # need this, otherwise it is grey
-    modelcheckpoint:
+    model_checkpoint:
       target: pytorch_lightning.callbacks.ModelCheckpoint
       params:
         every_n_epochs: 1

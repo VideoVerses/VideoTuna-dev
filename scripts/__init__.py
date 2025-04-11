@@ -114,7 +114,7 @@ def inference_cogvideo_i2v_diffusers():
             "--model_path",
             "checkpoints/cogvideo/CogVideoX-5b-I2V",
             "--output_path",
-            "results/cogvideo-test-i2v",
+            "results/i2v/cogvideox5b",
             "--num_inference_steps",
             "50",
             "--guidance_scale",
@@ -212,7 +212,7 @@ def inference_cogvideo_t2v_diffusers():
             "--model_path",
             "checkpoints/cogvideo/CogVideoX-2b",
             "--output_path",
-            "results/output.mp4",
+            "results/t2v/cogvideox5b",
             "--num_inference_steps",
             "50",
             "--guidance_scale",
@@ -367,7 +367,7 @@ def inference_flux_dev():
         "--prompt",
         prompt,
         "--out_path",
-        "results/flux-dev/",
+        "results/t2i/flux-dev/",
         "--width",
         str(width),
         "--height",
@@ -428,11 +428,11 @@ def inference_hunyuan():
             "--flow-reverse",
             "--use-cpu-offload",
             "--save-path",
-            "./results/hunyuan",
+            "./results/t2v/hunyuan",
             "--model-base",
-            "./checkpoints/hunyuan",
+            "./checkpoints/hunyuanvideo/HunyuanVideo",
             "--dit-weight",
-            "./checkpoints/hunyuan/hunyuan-video-t2v-720p/transformers/mp_rank_00_model_states.pt",
+            "./checkpoints/hunyuanvideo/HunyuanVideo/hunyuan-video-t2v-720p/transformers/mp_rank_00_model_states.pt",
             "--seed",
             "43",
         ]
@@ -619,6 +619,7 @@ def inference_wanvideo_i2v_720p():
             "--seed", "44",
             "--num_inference_steps", "40",
             "--time_shift", "5.0",
+            "--enable_model_cpu_offload"
         ]
         + sys.argv[1:],
         check=False,
@@ -627,8 +628,8 @@ def inference_wanvideo_i2v_720p():
 
 
 def inference_wanvideo_t2v_720p():
-    ckpt = "checkpoints/wan/Wan2.1-I2V-14B-720P/"
-    config = "configs/008_wanvideo/wan2_1_i2v_14B_720P_refactor.yaml"
+    ckpt = "checkpoints/wan/Wan2.1-T2V-14B/"
+    config = "configs/008_wanvideo/wan2_1_t2v_14B_refactor.yaml"
     prompt_file = "inputs/t2v/prompts.txt"
     savedir = "results/t2v/wanvideo/720P"
     result = subprocess.run(
@@ -645,6 +646,7 @@ def inference_wanvideo_t2v_720p():
             "--seed", "44",
             "--time_shift", "5.0",
             "--num_inference_steps", "50",
+            "--enable_model_cpu_offload"
         ]
         + sys.argv[1:],
         check=False,
@@ -750,19 +752,21 @@ def inference_vc2_t2v_320x512():
 
 def inference_vc2_t2v_320x512_refactor():
     # Dependencies
-    ckpt = "checkpoints/videocrafter/t2v_v2_512/model.ckpt"
-    config = "configs/001_videocrafter2/vc2_t2v_320x512.yaml"
+    ckpt = "checkpoints/videocrafter/t2v_v2_512_refactor"
+    config = "configs/001_videocrafter2/vc2_t2v_320x512_refactor.yaml"
     prompt_file = "inputs/t2v/prompts.txt"
     result = subprocess.run(
         [
             "python3",
-            "scripts/inference.py",
+            "scripts/inference_new.py",
             "--ckpt_path",
             ckpt,
             "--config",
             config,
             "--prompt_file",
             prompt_file,
+            "--savefps",
+            "30",
         ]
         + sys.argv[1:],
         check=False,
@@ -952,7 +956,7 @@ def train_opensorav10():
             "scripts/train.py",
             "-t",
             "--devices",
-            "0,",
+            "0,1,2,3",
             "lightning.trainer.num_nodes=1",
             "--base",
             config,
@@ -1010,9 +1014,9 @@ def train_videocrafter_v2():
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
     # Dependencies
-    sdckpt = "checkpoints/stablediffusion/v2-1_512-ema/model.ckpt"  # pretrained checkpoint of stablediffusion 2.1
+    sdckpt = "checkpoints/stablediffusion/v2-1_512-ema/v2-1_512-ema-pruned.ckpt"  # pretrained checkpoint of stablediffusion 2.1
     vc2_ckpt = "checkpoints/videocrafter/t2v_v2_512/model_converted.ckpt"  # pretrained checkpoint of videocrafter2
-    config = "configs/001_videocrafter2/vc2_t2v_320x512.yaml"  # experiment config: model+data+training
+    config = "configs/001_videocrafter2/vc2_t2v_320x512_refactor.yaml"  # experiment config: model+data+training
 
     # Experiment saving directory and parameters
     resroot = "results/train"  # root directory for saving multiple experiments
@@ -1020,7 +1024,7 @@ def train_videocrafter_v2():
     result = subprocess.run(
         [
             "python",
-            "scripts/train.py",
+            "scripts/train_new.py",
             "-t",
             "--sdckpt",
             sdckpt,
@@ -1033,7 +1037,7 @@ def train_videocrafter_v2():
             "--name",
             f"{current_time}_{expname}",
             "--devices",
-            "0,",
+            "0,1,2,3",
             "lightning.trainer.num_nodes=1",
             "--auto_resume",
         ]

@@ -12,8 +12,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from videotuna.base.utils_diffusion import make_beta_schedule, rescale_zero_terminal_snr
-from videotuna.lvdm.modules.utils import (
+from videotuna.flow.base.utils_diffusion import make_beta_schedule, rescale_zero_terminal_snr
+from videotuna.models.lvdm.modules.utils import (
     default,
     disabled_train,
     exists,

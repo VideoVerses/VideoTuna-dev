@@ -13,6 +13,9 @@ import cv2
 import numpy as np
 import torch
 import torch.distributed as dist
+import json
+from typing import List, Union
+from argparse import Namespace
 
 
 def count_params(model, verbose=False):
@@ -53,7 +56,7 @@ def get_params(config, resolve=True):
     return params
 
 # resolve will make params dict type rather than DictConfig type
-def instantiate_from_config(config, resolve=True):
+def instantiate_from_config(config, resolve=False):
     if not "target" in config:
         if config == "__is_first_stage__":
             return None
@@ -150,9 +153,9 @@ def monitor_resources(return_metrics=True):
 
             if return_metrics:
                 return {
-                    "time_used_sec": round(time_used, 2),
-                    "cpu_mem_used_gb": round(cpu_mem_used, 2),
-                    "gpu_mem_used_gb": round(gpu_mem_used, 2) if gpu_mem_used is not None else None,
+                    "time": round(time_used, 2),
+                    "cpu": round(cpu_mem_used, 2),
+                    "gpu": round(gpu_mem_used, 2) if gpu_mem_used is not None else None,
                     "result": result,
                 }
             else:
@@ -161,3 +164,22 @@ def monitor_resources(return_metrics=True):
         return wrapper
     return decorator
 
+
+
+def save_metrics(gpu: List[float],
+                time: List[float],
+                config: Union[DictConfig, Namespace],
+                savedir: str):
+    config_dict = None
+    if config is not None:
+        if isinstance(config, DictConfig):
+            config_dict = OmegaConf.to_container(config, resolve=True)
+        else:
+            config_dict = vars(config)
+    metrics = {
+        "gpu" : gpu,
+        "time": time,
+        "config" : config_dict
+    }
+    with open(f"{savedir}/metric.json", "w") as f:
+        json.dump(metrics, f, indent=4)

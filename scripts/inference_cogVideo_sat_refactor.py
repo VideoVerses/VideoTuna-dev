@@ -23,7 +23,7 @@ from sat.model.base_model import get_model
 from sat.training.model_io import load_checkpoint
 from tqdm import tqdm
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../videotuna/cogvideo_sat"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../videotuna/models/cogvideo_sat"))
 import datetime
 
 from arguments import getArgs

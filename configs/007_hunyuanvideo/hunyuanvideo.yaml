@@ -1,10 +1,10 @@
 model:
   base_learning_rate: 6e-6
-  target: videotuna.hunyuanvideo.hunyuanvideo.HunyuanVideoWorkFlow
+  target: videotuna.models.hunyuanvideo.hunyuanvideo.HunyuanVideoWorkFlow
   params: 
     # VAE of HunyuanVideo
     first_stage_config:
-      target: videotuna.hunyuanvideo.vae.autoencoder_kl_causal_3d.AutoencoderKLCausal3D
+      target: videotuna.models.hunyuanvideo.vae.autoencoder_kl_causal_3d.AutoencoderKLCausal3D
       # seems we do not need params here, defaults look fine. 
       # params:
         # pretrained_model_name_or_path: checkpoints-local/hunyuanvideo/hunyuan-video-t2v-720p/vae
@@ -12,7 +12,7 @@ model:
     
     # Text encoder 
     cond_stage_config:
-      target: videotuna.hunyuanvideo.text_encoder.TextEncoder # TODO
+      target: videotuna.models.hunyuanvideo.text_encoder.TextEncoder # TODO
       params:
         text_encoder_type: "llm"
         device: "cuda"
@@ -21,7 +21,7 @@ model:
     
     # Denosier model
     denoiser_config:
-      target: videotuna.hunyuanvideo.modules.models.HYVideoDiffusionTransformer
+      target: videotuna.models.hunyuanvideo.modules.models.HYVideoDiffusionTransformer
       params:
         # dtype: "bf16" # bf16 5b / fp16 2B 
         # revision: null 
@@ -50,7 +50,7 @@ model:
 
     # Diffusion sampling scheduler
     scheduler_config:
-      target: videotuna.hunyuanvideo.diffusion.schedulers.scheduling_flow_match_discrete
+      target: videotuna.models.hunyuanvideo.diffusion.schedulers.scheduling_flow_match_discrete
       # params:
         # pretrained_model_name_or_path: checkpoints/cogvideo/CogVideoX-5b
         # subfolder: scheduler

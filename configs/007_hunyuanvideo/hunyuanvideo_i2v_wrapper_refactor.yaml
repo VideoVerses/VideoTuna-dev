@@ -35,7 +35,7 @@ flow:
     lora_rank: 64
       
     first_stage_config:
-      target: videotuna.hunyuan.hyvideo_i2v.vae.autoencoder_kl_causal_3d.AutoencoderKLCausal3DWrapper
+      target: videotuna.models.hunyuan.hyvideo_i2v.vae.autoencoder_kl_causal_3d.AutoencoderKLCausal3DWrapper
       params:
         vae_type: ${flow.params.vae_type}
         vae_path: ${flow.params.first_stage_ckpt_path}
@@ -44,7 +44,7 @@ flow:
         device: cuda
     
     cond_stage_config:
-      target: videotuna.hunyuan.hyvideo_i2v.text_encoder.TextEncoderWrapper
+      target: videotuna.models.hunyuan.hyvideo_i2v.text_encoder.TextEncoderWrapper
       params:
         i2v_mode: ${flow.params.i2v_mode}
         i2v_condition_type: ${flow.params.i2v_condition_type}
@@ -62,7 +62,7 @@ flow:
         text_encoder_precision: "fp16"
 
     cond_stage_2_config:
-      target: videotuna.hunyuan.hyvideo_i2v.text_encoder.TextEncoder
+      target: videotuna.models.hunyuan.hyvideo_i2v.text_encoder.TextEncoder
       params:
         text_encoder_type: clipL
         max_length: 77
@@ -72,7 +72,7 @@ flow:
     
     # Denoiser model wrapper 
     denoiser_config:
-      target: videotuna.hunyuan.hyvideo_i2v.modules.models.HYVideoDiffusionTransformerWrapper
+      target: videotuna.models.hunyuan.hyvideo_i2v.modules.models.HYVideoDiffusionTransformerWrapper
       params:
         i2v_mode: ${flow.params.i2v_mode}
         i2v_condition_type: ${flow.params.i2v_condition_type}
@@ -91,7 +91,7 @@ flow:
     
     # Diffusion sampling scheduler
     scheduler_config:
-      target: videotuna.hunyuan.hyvideo_i2v.diffusion.schedulers.scheduling_flow_match_discrete.FlowMatchDiscreteScheduler
+      target: videotuna.models.hunyuan.hyvideo_i2v.diffusion.schedulers.scheduling_flow_match_discrete.FlowMatchDiscreteScheduler
       params:
         shift: ${flow.params.time_shift}
         reverse: True
@@ -128,6 +128,8 @@ inference:
   i2v_mode: true
   i2v_condition_type: token_replace
   i2v_stability: true
+  enable_sequential_cpu_offload: true
+  enable_vae_tiling: true
 
   mapping:
     inference.time_shift : flow.params.time_shift
@@ -137,6 +139,8 @@ inference:
     inference.ulysses_degree : flow.params.ulysses_degree
     inference.ckpt_path : flow.params.ckpt_path
     inference.dit_weight : flow.params.dit_weight
+    inference.enable_sequential_cpu_offload : flow.params.use_cpu_offload
+    inference.enable_vae_tiling: flow.params.vae_tiling
 
 
     

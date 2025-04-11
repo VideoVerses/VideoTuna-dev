@@ -5,7 +5,7 @@ import torch
 from diffusers import FluxPipeline
 
 from videotuna.utils.inference_utils import load_prompts_from_txt
-
+from videotuna.utils.common_utils import monitor_resources, save_metrics
 
 def inference(args):
     if args.model_type == "dev":
@@ -19,9 +19,17 @@ def inference(args):
     else:
         raise ValueError("model_type must be either 'dev' or 'schnell'")
 
-    pipe.enable_sequential_cpu_offload()
-    pipe.vae.enable_slicing()
-    pipe.vae.enable_tiling()
+    if args.enable_sequential_cpu_offload:
+        pipe.enable_sequential_cpu_offload()
+    elif args.enable_model_cpu_offload:
+        pipe.enable_model_cpu_offload()
+    else:
+        pipe.to("cuda")
+
+    if args.enable_vae_slicing:
+        pipe.vae.enable_slicing()
+    if args.enable_vae_tiling:
+        pipe.vae.enable_tiling()
     pipe.to(torch.float16)
     if args.prompt.endswith(".txt"):
         # model_input is a file for t2i
@@ -34,8 +42,19 @@ def inference(args):
     else:
         prompts = [prompt]
         out_paths = [args.out_path]
+    gpu_metrics = []
+    time_metrics = []
     for prompt, out_path in zip(prompts, out_paths):
-        out = pipe(
+        result_with_metrics = generate(args, pipe, prompt)
+        out = result_with_metrics['result']
+        gpu_metrics.append(result_with_metrics.get('gpu', -1.0))
+        time_metrics.append(result_with_metrics.get('time', -1.0))
+        out.save(out_path)
+    save_metrics(gpu=gpu_metrics, time=time_metrics, config=args, savedir=args.out_path)
+
+@monitor_resources(return_metrics=True)
+def generate(args, pipe, prompt):
+    out = pipe(
             prompt=prompt,
             guidance_scale=args.guidance_scale,
             height=args.height,
@@ -43,7 +62,7 @@ def inference(args):
             num_inference_steps=args.num_inference_steps,
             max_sequence_length=256,
         ).images[0]
-        out.save(out_path)
+    return out
 
 
 if __name__ == "__main__":
@@ -59,5 +78,17 @@ if __name__ == "__main__":
     parser.add_argument("--height", type=int, default=768)
     parser.add_argument("--num_inference_steps", type=int, default=4)
     parser.add_argument("--guidance_scale", type=float, default=0.0)
+    parser.add_argument(
+        "--enable_vae_tiling", action="store_true", help="enable vae tiling"
+    )
+    parser.add_argument(
+        "--enable_vae_slicing", action="store_true", help="enable vae slicing"
+    )
+    parser.add_argument(
+        "--enable_sequential_cpu_offload", action="store_true", help="enable sequential cpu offload"
+    )
+    parser.add_argument(
+        "--enable_model_cpu_offload", action="store_true", help="enable model cpu offload"
+    )
     args = parser.parse_args()
     inference(args)

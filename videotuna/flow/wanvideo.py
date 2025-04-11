@@ -13,10 +13,10 @@ from omegaconf import OmegaConf, DictConfig
 from videotuna.flow.generation_base import GenerationFlow
 from videotuna.utils.common_utils import instantiate_from_config
 from videotuna.utils.args_utils import VideoMode
-import videotuna.wan.wan as wan
-from videotuna.wan.wan.configs import WAN_CONFIGS, SIZE_CONFIGS, MAX_AREA_CONFIGS, SUPPORTED_SIZES
-from videotuna.wan.wan.utils.prompt_extend import DashScopePromptExpander, QwenPromptExpander
-from videotuna.wan.wan.utils.utils import cache_video, cache_image, str2bool
+import videotuna.models.wan.wan as wan
+from videotuna.models.wan.wan.configs import WAN_CONFIGS, SIZE_CONFIGS, MAX_AREA_CONFIGS, SUPPORTED_SIZES
+from videotuna.models.wan.wan.utils.prompt_extend import DashScopePromptExpander, QwenPromptExpander
+from videotuna.models.wan.wan.utils.utils import cache_video, cache_image, str2bool
 
 EXAMPLE_PROMPT = {
     "t2v-1.3B": {
@@ -216,6 +216,8 @@ class WanVideoModelFlow(GenerationFlow):
             logger.warning("WanVideo currently does not support batch inference, we will run sample at a time")
         
         videos = []
+        gpu = []
+        time = []
         for prompt in prompt_list:
             logger.info(f"Input prompt: {prompt}")
             if self.use_prompt_extend:
@@ -242,7 +244,7 @@ class WanVideoModelFlow(GenerationFlow):
 
             logger.info(
                 f"Generating {'image' if 't2i' in self.task else 'video'} ...")
-            video = self.wan_t2v.generate(
+            result_with_metrics = self.wan_t2v.generate(
                 prompt,
                 size=SIZE_CONFIGS[size],
                 frame_num=frames,
@@ -252,12 +254,17 @@ class WanVideoModelFlow(GenerationFlow):
                 guide_scale=guide_scale,
                 seed=self.seed,
                 offload_model=self.offload_model)
+            video = result_with_metrics['result']
             videos.append(video)
+
+            gpu.append(result_with_metrics.get('gpu', -1.0))
+            time.append(result_with_metrics.get('time', -1.0))
 
         if rank == 0:
             logger.info("Saving videos")
             filenames = self.process_savename(prompt_list, args.n_samples_prompt)
             self.save_videos(torch.stack(videos).unsqueeze(dim=1), args.savedir, filenames, fps=args.savefps)
+            self.save_metrics(gpu=gpu, time=time, config=args, savedir=args.savedir)
 
     def inference_i2v(self, args: DictConfig):
         # init vars
@@ -280,6 +287,8 @@ class WanVideoModelFlow(GenerationFlow):
             logger.warning("WanVideo currently does not support batch inference, we will run sample at a time")
             
         videos = []
+        gpu = []
+        time = []
         for prompt, image_path in zip(prompt_list, image_list):
             logger.info(f"Input prompt: {prompt}")
             logger.info(f"Input image: {image_path}")
@@ -310,7 +319,7 @@ class WanVideoModelFlow(GenerationFlow):
 
 
             logger.info("Generating video ...")
-            video = self.wan_i2v.generate(
+            result_with_metrics = self.wan_i2v.generate(
                 prompt,
                 img,
                 max_area=MAX_AREA_CONFIGS[size],
@@ -321,14 +330,19 @@ class WanVideoModelFlow(GenerationFlow):
                 guide_scale=guide_scale,
                 seed=self.seed,
                 offload_model=self.offload_model)
+            
+            video = result_with_metrics['result']
             video = video.cpu()
             videos.append(video)
+            gpu.append(result_with_metrics.get('gpu', -1.0))
+            time.append(result_with_metrics.get('time', -1.0))
+            del result_with_metrics
             
         if rank == 0:
             logger.info("Saving videos")
             filenames = self.process_savename(prompt_list, args.n_samples_prompt)
             self.save_videos(torch.stack(videos).unsqueeze(dim=1), args.savedir, filenames, fps=args.savefps)
-
+            self.save_metrics(gpu=gpu, time=time, config=args, savedir=args.savedir)
 
     @torch.no_grad()
     def inference(self, args: DictConfig): 

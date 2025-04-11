@@ -18,12 +18,12 @@ import pytorch_lightning as pl
 from pytorch_lightning.utilities import rank_zero_only
 from torchvision.utils import make_grid
 
-from videotuna.base.ema import LitEma
+from videotuna.flow.base.ema import LitEma
 from videotuna.scheduler import DDIMSampler
-from videotuna.base.distributions import DiagonalGaussianDistribution, normal_kl
+from videotuna.flow.base.distributions import DiagonalGaussianDistribution, normal_kl
 from videotuna.flow.generation_base import GenerationFlow
 from videotuna.utils.common_utils import instantiate_from_config, print_green, print_yellow
-from videotuna.lvdm.modules.utils import (
+from videotuna.models.lvdm.modules.utils import (
     default,
     disabled_train,
     exists,
@@ -202,7 +202,7 @@ class VideocrafterFlow(GenerationFlow):
         # model related 
         self.first_stage_key = first_stage_key
         self.channels = channels
-        self.temporal_length = denoiser_config.params.get('temporal_length', 16)
+        self.temporal_length = denoiser_config['params'].get('temporal_length', 16)
         self.image_size = image_size  # try conv?
         if isinstance(self.image_size, int):
             self.image_size = [self.image_size, self.image_size]
@@ -220,7 +220,7 @@ class VideocrafterFlow(GenerationFlow):
         self.l_simple_weight = l_simple_weight
 
         print('scheduler config type: ', type(scheduler_config))
-        scheduler_config.parameterization = self.parameterization
+        scheduler_config['parameterization'] = self.parameterization
         self.num_timesteps = self.scheduler.num_timesteps
 
         # others 
@@ -259,7 +259,7 @@ class VideocrafterFlow(GenerationFlow):
             self.register_buffer('scale_arr', to_torch(scale_arr))
 
         try:
-            self.num_downs = len(first_stage_config.params.ddconfig.ch_mult) - 1
+            self.num_downs = len(first_stage_config['params'].ddconfig.ch_mult) - 1
         except:
             self.num_downs = 0
         if not scale_by_std:
@@ -787,6 +787,7 @@ class VideocrafterFlow(GenerationFlow):
         """
         # ----------------------------------------------------------------------------------
         # make cond & uncond for t2v
+        uncond_prompt = "" if uncond_prompt is None else uncond_prompt
         batch_size = noise_shape[0]
         text_emb = self.get_learned_conditioning(prompts)
         fps = torch.tensor([fps] * batch_size).to(self.device).long()

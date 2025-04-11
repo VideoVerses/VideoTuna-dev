@@ -15,4 +15,4 @@ python3 scripts/inference_new.py \
     --i2v_resolution "720p" \
     --frames 129 \
     --seed 44 \
-    --num_inference_steps 50 \
+    --num_inference_steps 50 
