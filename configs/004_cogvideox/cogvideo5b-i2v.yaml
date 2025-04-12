@@ -26,9 +26,7 @@ model:
       params:
         pretrained_model_name_or_path: checkpoints/cogvideo/CogVideoX-5b-I2V
         subfolder: "transformer"
-        load_dtype: fp16 # bf16 5b / fp16 2B
-        # revision: null
-        # variant: null
+        # load_dtype: bf16 # bf16 for 5b / fp16 for 2B
 
     # Lora module
     adapter_config:
@@ -79,7 +77,7 @@ data:
     train:
       target: videotuna.data.datasets.DatasetFromCSV
       params:
-        csv_path: temp/apply_lipstick.csv
+        csv_path: ${YOUR_DATA_CSV_PATH}
         height: 480
         width: 720
         video_length: 49
@@ -89,7 +87,7 @@ data:
     validation:
       target: videotuna.data.datasets.DatasetFromCSV
       params:
-        csv_path: temp/apply_lipstick.csv
+        csv_path: ${YOUR_DATA_CSV_PATH}
         height: 480
         width: 720
         video_length: 49
@@ -109,7 +107,7 @@ lightning:
     image_logger:
       target: videotuna.utils.callbacks.ImageLogger
       params:
-        batch_frequency: 100000
+        batch_frequency: 100
         max_images: 2
         to_local: True # save videos into local files
         log_images_kwargs:
@@ -120,4 +118,4 @@ lightning:
         filename: "{epoch:06}-{step:09}"
         save_weights_only: False
         # every_n_epochs: 300
-        every_n_train_steps: 10
+        every_n_train_steps: 2 #200

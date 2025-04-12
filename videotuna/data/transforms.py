@@ -662,12 +662,10 @@ class CheckVideo:
         length = vframes.shape[0]  # [F, C, H, W]
         h = vframes.shape[2]
         w = vframes.shape[3]
-        if length <= self.frame_limit:
+        if length < self.frame_limit:
             raise ValueError(
                 f"The video has not enough frames. Current frames: {length}"
             )
-        if h < self.resolution[0] or w < self.resolution[1]:
-            raise ValueError(f"Video resolution is too low: (h, w) = {(h, w)}")
         return vframes
 
 

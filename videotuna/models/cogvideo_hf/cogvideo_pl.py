@@ -153,6 +153,15 @@ class CogVideoXWorkFlow(pl.LightningModule):
         # CogVideoX-5b weights are stored in bfloat16
         # load_dtype = torch.bfloat16 if "5b" in config.pretrained_model_name_or_path.lower() else torch.float16
         self.model = instantiate_from_config(denoiser_config)
+        
+        if "load_dtype" in denoiser_config.params:
+            if denoiser_config.params.load_dtype == "fp16":
+                print("Convert denoiser to fp16")
+                self.model.half()
+            elif denoiser_config.params.load_dtype == "bf16":
+                print("Convert denoiser to bf16")
+                self.model.bfloat16()
+
         # self.model = DiffusionWrapper(unet_config, conditioning_key)
         # what I notice is : the most code in DDPM that seems different from there,
         # are most schduler
@@ -227,14 +236,6 @@ class CogVideoXWorkFlow(pl.LightningModule):
             c = getattr(self.cond_stage_model, self.cond_stage_forward)(c)
         return c
 
-    def decode_latents(self, latents: torch.Tensor) -> torch.Tensor:
-        latents = latents.permute(
-            0, 2, 1, 3, 4
-        )  # [batch_size, num_channels, num_frames, height, width]
-        latents = 1 / self.vae.config.scaling_factor * latents
-
-        frames = self.vae.decode(latents).sample
-        return frames
 
     # Copied from diffusers.pipelines.latte.pipeline_latte.LattePipeline.check_inputs
     def check_inputs(
@@ -300,12 +301,10 @@ class CogVideoXWorkFlow(pl.LightningModule):
         num_videos_per_prompt: int = 1,
         max_sequence_length: int = 226,
         device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        dtype: Optional[torch.dtype] = torch.float32,
         text_input_ids=None,
     ):
         device = self.device
-        # TODO: fix data type
-        dtype = torch.float32
         prompt = [prompt] if isinstance(prompt, str) else prompt
         batch_size = len(prompt)
 
@@ -457,8 +456,8 @@ class CogVideoXWorkFlow(pl.LightningModule):
         latents = latents.permute(
             0, 2, 1, 3, 4
         )  # [batch_size, num_channels, num_frames, height, width]
-        latents = 1 / self.vae.config.scaling_factor * latents
-        # print(">>>>>>",latents.shape)
+        latents = 1 / self.vae.config.scaling_factor * latents # [1, 16, 13, 60, 90]
+        latents = latents.to(self.vae.dtype)
         frames = self.vae.decode(latents).sample
         return frames
 
@@ -926,6 +925,20 @@ class CogVideoXWorkFlow(pl.LightningModule):
         )
         loss = loss.mean()
         return loss
+    
+    @torch.no_grad()
+    def log_images(self, batch, **kwargs):
+        log = dict()
+        
+        prompts = batch["caption"]
+        videos = batch["video"]
+        
+        batch_samples = self.sample(prompts, num_inference_steps=20)
+        
+        log["inputs"] = videos
+        log["samples"] = batch_samples
+        return log
+
 
 
 if __name__ == "__main__":

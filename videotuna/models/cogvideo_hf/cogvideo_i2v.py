@@ -12,7 +12,7 @@ from diffusers.pipelines.cogvideo.pipeline_output import CogVideoXPipelineOutput
 from diffusers.utils.torch_utils import randn_tensor
 
 from videotuna.models.cogvideo_hf.cogvideo_pl import CogVideoXWorkFlow
-
+from tqdm import tqdm
 
 def retrieve_latents(
     encoder_output: torch.Tensor,
@@ -136,19 +136,36 @@ class CogVideoXI2V(CogVideoXWorkFlow):
         """
         Prepare model batch inputs
         """
-        # videos
+        # prompt
+        prompts = [item for item in batch["caption"]]
+
+        # video latents
         videos = [self.encode_video(video) for video in batch["video"]]
         videos = [video.sample() * self.vae.config.scaling_factor for video in videos]
         videos = torch.cat(videos, dim=0)
         videos = videos.to(memory_format=torch.contiguous_format).float()
-        # images
+        # image latents
         images = [self.encode_image(image) for image in batch["image"]]
         images = [image.sample() * self.vae.config.scaling_factor for image in images]
         images = torch.cat(images, dim=0).to(
             dtype=torch.float32, memory_format=torch.contiguous_format
         )
-        # prompt
-        prompts = [item for item in batch["caption"]]
+        
+        videos = videos.permute(0, 2, 1, 3, 4).to(dtype=self.dtype) # [B, C, T, H, W] -> [B, T, C, H, W]
+        images = images.permute(0, 2, 1, 3, 4).to(dtype=self.dtype) # [B, C, T, H, W] -> [B, T, C, H, W]
+
+        # pad conditional image latents
+        padding_shape = (
+            videos.shape[0],
+            videos.shape[1] - 1,
+            *videos.shape[2:],
+        )
+        latent_padding = videos.new_zeros(padding_shape)
+        images = torch.cat([images, latent_padding], dim=1)  # [B, 4, 16, 60, 90]
+        # conditional image dropout
+        if random.random() < self.noised_image_dropout:
+            images = torch.zeros_like(images)
+
         return {
             "videos": videos,
             "images": images,
@@ -157,25 +174,9 @@ class CogVideoXI2V(CogVideoXWorkFlow):
 
     def training_step(self, batch, batch_idx):
         batch = self.get_batch_input(batch)
-        model_input = (
-            batch["videos"].permute(0, 2, 1, 3, 4).to(dtype=self.dtype)
-        )  # [B, F, C, H, W]
+        model_input = batch["videos"]
+        image_latents = batch["images"]
         prompts = batch["prompts"]
-        model_input_images = (
-            batch["images"].permute(0, 2, 1, 3, 4).to(dtype=self.dtype)
-        )  # [2, 1, 16, 60, 90] # [B, T, C, H, W]
-        # pad conditional image
-        padding_shape = (
-            model_input.shape[0],
-            model_input.shape[1] - 1,
-            *model_input.shape[2:],
-        )
-        latent_padding = model_input_images.new_zeros(padding_shape)
-        image_latents = torch.cat(
-            [model_input_images, latent_padding], dim=1
-        )  # [2, 4, 16, 60, 90]
-        if random.random() < self.noised_image_dropout:
-            image_latents = torch.zeros_like(image_latents)
 
         max_sequence_length = 226
         with torch.no_grad():
@@ -275,7 +276,11 @@ class CogVideoXI2V(CogVideoXWorkFlow):
                 f" size of {batch_size}. Make sure the batch size matches the length of the generators."
             )
 
-        image = image.unsqueeze(2)  # [B, C, F, H, W]
+        if isinstance(image, torch.Tensor):
+            if image.ndim < 5:
+                image = image.unsqueeze(2)
+
+        image = image.to(self.vae.dtype)
 
         if isinstance(generator, list):
             image_latents = [
@@ -290,9 +295,10 @@ class CogVideoXI2V(CogVideoXWorkFlow):
 
         image_latents = (
             torch.cat(image_latents, dim=0).to(dtype).permute(0, 2, 1, 3, 4)
-        )  # [B, F, C, H, W]
+        )  # [B, T, C, H, W]
         image_latents = self.vae.config.scaling_factor * image_latents
 
+        # pad conditional images
         padding_shape = (
             batch_size,
             num_frames - 1,
@@ -418,6 +424,7 @@ class CogVideoXI2V(CogVideoXWorkFlow):
         ] = None,
         callback_on_step_end_tensor_inputs: List[str] = ["latents"],
         max_sequence_length: int = 226,
+        progress_bar: bool = True,
     ) -> Union[CogVideoXPipelineOutput, Tuple]:
         """
         Function invoked when calling the pipeline for generation.
@@ -548,6 +555,7 @@ class CogVideoXI2V(CogVideoXWorkFlow):
             negative_prompt_embeds=negative_prompt_embeds,
             max_sequence_length=max_sequence_length,
             device=device,
+            dtype=self.model.dtype,
         )
         if do_classifier_free_guidance:
             prompt_embeds = torch.cat([negative_prompt_embeds, prompt_embeds], dim=0)
@@ -558,11 +566,15 @@ class CogVideoXI2V(CogVideoXWorkFlow):
         )
         self._num_timesteps = len(timesteps)
 
-        # 5. Prepare latents
-        image = self.video_processor.preprocess(image, height=height, width=width).to(
-            device, dtype=prompt_embeds.dtype
-        )
+        ## Prepare input image
+        if (isinstance(image, torch.Tensor) and image.ndim == 5):
+            pass
+        else:
+            image = self.video_processor.preprocess(image, height=height, width=width).to(
+                device, dtype=prompt_embeds.dtype
+            )
 
+        # 5. Prepare latents
         latent_channels = self.model.config.in_channels // 2
         latents, image_latents = self.prepare_latents(
             image,
@@ -596,7 +608,11 @@ class CogVideoXI2V(CogVideoXWorkFlow):
 
         # for DPM-solver++
         old_pred_original_sample = None
-        for i, t in enumerate(timesteps):
+        if progress_bar:
+            iters = tqdm(enumerate(timesteps), desc="Denoising Steps")
+        else:
+            iters = enumerate(timesteps)
+        for i, t in iters:
             # if self.interrupt:
             #     continue
 
@@ -687,7 +703,7 @@ class CogVideoXI2V(CogVideoXWorkFlow):
         else:
             video = latents
 
-        self.model.cpu()
+        # self.model.cpu()
         # Offload all models
         # self.maybe_free_model_hooks()
 
@@ -700,3 +716,17 @@ class CogVideoXI2V(CogVideoXWorkFlow):
         return video
 
         # return CogVideoXPipelineOutput(frames=video)
+
+    @torch.no_grad()
+    def log_images(self, batch, **kwargs):
+        log = dict()
+        
+        images = batch["image"].to(dtype=self.dtype) # [B, C, T, H, W] 
+        prompts = batch["caption"]
+        batch_samples = self.sample(images, prompts, num_inference_steps=20)
+        
+        log["inputs"] = batch["image"]
+        log["prompts"] = batch["caption"]
+        log["samples"] = batch_samples
+        
+        return log
