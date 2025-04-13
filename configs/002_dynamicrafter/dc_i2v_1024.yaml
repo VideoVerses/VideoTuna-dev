@@ -153,6 +153,7 @@ lightning:
         max_images: 6
         to_local: True # save videos into files
         log_images_kwargs:
+          sample: false
           ddim_steps: 50
           unconditional_guidance_scale: 7.5
           timestep_spacing: uniform_trailing
@@ -160,7 +161,7 @@ lightning:
     model_checkpoint:
       target: pytorch_lightning.callbacks.ModelCheckpoint
       params:
-        every_n_train_steps: 9000 #1000
+        every_n_train_steps: 50
         filename: "{epoch:04}-{step:06}"
         save_weights_only: True
     metrics_over_trainsteps_checkpoint:

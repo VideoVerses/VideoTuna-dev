@@ -39,7 +39,7 @@ if [[ $inference_methods == *"videocrafter2"* ]]; then
     --prompt_file $prompt_file \
     --savedir ${save_dir}/t2v/videocrafter2-${width}x${height}-${fps}fps \
     --bs 1 --height 320 --width 512 \
-    --fps ${fps} \
+    --savefps ${fps} \
     --seed ${seed}
 fi
 
