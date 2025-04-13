@@ -718,40 +718,6 @@ def inference_vc1_t2v_576x1024():
 
 def inference_vc2_t2v_320x512():
     # Dependencies
-    ckpt = "checkpoints/videocrafter/t2v_v2_512/model.ckpt"
-    config = "configs/001_videocrafter2/vc2_t2v_320x512.yaml"
-    prompt_file = "inputs/t2v/prompts.txt"
-    savedir = f"results/t2v/{current_time}-videocrafter2"
-    result = subprocess.run(
-        [
-            "python3",
-            "scripts/inference.py",
-            "--ckpt_path",
-            ckpt,
-            "--config",
-            config,
-            "--prompt_file",
-            prompt_file,
-            "--savedir",
-            savedir,
-            "--bs",
-            "1",
-            "--height",
-            "320",
-            "--width",
-            "512",
-            "--fps",
-            "28",
-            "--seed",
-            "123",
-        ]
-        + sys.argv[1:],
-        check=False,
-    )
-    exit(result.returncode)
-
-def inference_vc2_t2v_320x512_refactor():
-    # Dependencies
     ckpt = "checkpoints/videocrafter/t2v_v2_512_refactor"
     config = "configs/001_videocrafter2/vc2_t2v_320x512_refactor.yaml"
     prompt_file = "inputs/t2v/prompts.txt"
@@ -831,6 +797,7 @@ def train_cogvideox_i2v_lora():
     # Experiment settings
     resroot = "results/train"  # Experiment saving directory
     expname = "cogvideox_i2v_5b"  # Experiment name
+    datapath="data/apply_lipstick/metadata.csv"
 
     result = subprocess.run(
         [
@@ -846,6 +813,8 @@ def train_cogvideox_i2v_lora():
             "--devices",
             "0,",
             "lightning.trainer.num_nodes=1",
+            f"data.params.train.params.csv_path={datapath}",
+            f"data.params.validation.params.csv_path={datapath}",
             "--auto_resume",
         ]
         + sys.argv[1:],
@@ -947,16 +916,16 @@ def train_flux_lora():
 
 def train_opensorav10():
     # Experiment settings
-    expname = "run_macvid_t2v512"  # Experiment name
+    expname = "opensora"  # Experiment name
     config = "configs/003_opensora/opensorav10_256x256.yaml"  # Experiment config
-    logdir = "./results"  # Experiment saving directory
+    logdir = "results/train"  # Experiment saving directory
     result = subprocess.run(
         [
             "python",
             "scripts/train.py",
             "-t",
             "--devices",
-            "0,1,2,3",
+            "0,",
             "lightning.trainer.num_nodes=1",
             "--base",
             config,
@@ -1015,7 +984,7 @@ def train_videocrafter_v2():
 
     # Dependencies
     sdckpt = "checkpoints/stablediffusion/v2-1_512-ema/v2-1_512-ema-pruned.ckpt"  # pretrained checkpoint of stablediffusion 2.1
-    vc2_ckpt = "checkpoints/videocrafter/t2v_v2_512/model_converted.ckpt"  # pretrained checkpoint of videocrafter2
+    vc2_ckpt = "checkpoints/videocrafter/t2v_v2_512_refactor"  # pretrained checkpoint of videocrafter2
     config = "configs/001_videocrafter2/vc2_t2v_320x512_refactor.yaml"  # experiment config: model+data+training
 
     # Experiment saving directory and parameters
@@ -1037,8 +1006,7 @@ def train_videocrafter_v2():
             "--name",
             f"{current_time}_{expname}",
             "--devices",
-            "0,1,2,3",
-            "lightning.trainer.num_nodes=1",
+            "0,",
             "--auto_resume",
         ]
         + sys.argv[1:],

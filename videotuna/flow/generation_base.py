@@ -201,7 +201,7 @@ class GenerationFlow(TrainBase, InferenceBase):
             if model is None:
                 raise ValueError(f"Invalid component name: {component}")
             model.train()
-            for param in self.first_stage_model.parameters():
+            for param in model.parameters():
                 param.requires_grad = True
                 
         print_green(f"Set the following components as trainable: {components}")

@@ -267,7 +267,7 @@ class HunyuanVideoWorkFlow(pl.LightningModule):
         # print("Injecting lora adapter")
         transformer_adapter_config = instantiate_from_config(adapter_config)   
         # print(transformer_adapter_config)
-        self.model = get_peft_model(self.model, transformer_adapter_config)
+        self.model = get_peft_model(self.model, transformer_adapter_config, autocast_adapter_dtype=False)
         self.model.print_trainable_parameters()
     
     ## VAE is named as first_stage_model 
@@ -856,6 +856,7 @@ class HunyuanVideoWorkFlow(pl.LightningModule):
         # print(f"video shape in encode_video: {video.shape}") # [61, 3, 544, 960]
         video = video.to(self.device, dtype=self.dtype).unsqueeze(0) # [1, 61, 3, 544, 960]
         video = video.permute(0, 2, 1, 3, 4)  # [B, C, F, H, W], [1, 3, 61, 544, 960]
+
         latent_dist = self.vae.encode(video).latent_dist
         return latent_dist
    

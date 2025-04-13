@@ -130,7 +130,7 @@ train:
           save_on_train_epoch_end: False
           save_last: True
           every_n_epochs: 0
-          every_n_train_steps: 1000
+          every_n_train_steps: 500
 
 inference:
   mode: t2v

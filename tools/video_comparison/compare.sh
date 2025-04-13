@@ -25,15 +25,15 @@ python tools/video_comparison/check_input.py --input_dir=$input_dir --seed=$seed
 
 
 ################################ videocrafter2 ################################
-ckpt='checkpoints/videocrafter/t2v_v2_512/model.ckpt'
-config='configs/001_videocrafter2/vc2_t2v_320x512.yaml'
+ckpt='checkpoints/videocrafter/t2v_v2_512_refactor'
+config='configs/001_videocrafter2/vc2_t2v_320x512_refactor.yaml'
 prompt_file="${input_dir}/prompts.txt"
 height=320
 width=512
 fps=28
 
 if [[ $inference_methods == *"videocrafter2"* ]]; then
-  python3 scripts/inference.py \
+  python3 scripts/inference_new.py \
     --ckpt_path $ckpt \
     --config $config \
     --prompt_file $prompt_file \

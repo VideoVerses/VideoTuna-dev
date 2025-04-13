@@ -103,8 +103,3 @@ lightning:
     accumulate_grad_batches: 1
     max_epochs: 2000
     precision: bf16 # training precision
-  # modelcheckpoint:
-  #   target: pytorch_lightning.callbacks.ModelCheckpoint
-  #   params:
-  #     every_n_epochs: 1
-  #     filename: "{epoch:04}-{step:06}"
