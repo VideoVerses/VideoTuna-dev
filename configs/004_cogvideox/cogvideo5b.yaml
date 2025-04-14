@@ -24,9 +24,6 @@ model:
       params:
         pretrained_model_name_or_path: checkpoints/cogvideo/CogVideoX-5b
         subfolder: "transformer"
-        load_dtype: fp16 # bf16 5b / fp16 2B
-        # revision: null
-        # variant: null
 
     # Lora module
     adapter_config:
@@ -44,29 +41,30 @@ model:
         pretrained_model_name_or_path: checkpoints/cogvideo/CogVideoX-5b
         subfolder: scheduler
 
-# data configs
 data:
   target: videotuna.data.lightning_data.DataModuleFromConfig
   params:
-    batch_size: 2
+    batch_size: 1
     num_workers: 16
     wrap: false
     train:
-      target: videotuna.data.cogvideo_dataset.VideoDataset
+      target: videotuna.data.datasets.DatasetFromCSV
       params:
-        instance_data_root: "inputs/t2v/cogvideo/elon_musk_video"
-        dataset_name: null
-        dataset_config_name: null
-        caption_column: "labels.txt"
-        video_column: "videos.txt"
+        csv_path: ${YOUR_DATA_CSV_PATH}
         height: 480
         width: 720
-        fps: 28
-        max_num_frames: 2
-        skip_frames_start: 0
-        skip_frames_end: 0
-        cache_dir: ~/.cache
-        id_token: null
+        video_length: 49
+        frame_interval: 1
+        train: True
+    validation:
+      target: videotuna.data.datasets.DatasetFromCSV
+      params:
+        csv_path: ${YOUR_DATA_CSV_PATH}
+        height: 480
+        width: 720
+        video_length: 49
+        frame_interval: 1
+        train: False
 
 # training configs
 lightning:
@@ -80,7 +78,7 @@ lightning:
     image_logger:
       target: videotuna.utils.callbacks.ImageLogger
       params:
-        batch_frequency: 100000
+        batch_frequency: 50
         max_images: 2
         to_local: True # save videos into local files
         log_images_kwargs:

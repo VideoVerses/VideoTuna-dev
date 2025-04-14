@@ -18,6 +18,37 @@ from typing import List, Union
 from argparse import Namespace
 
 
+precision_to_dtype = {
+    "float32": torch.float32,
+    "float16": torch.float16,
+    "bfloat16": torch.bfloat16,
+}
+
+
+def get_resize_crop_region_for_grid(src, target):
+    """
+    Returns the centered crop region grid for a resized image to the target size while preserving aspect ratio.
+    src: (h, w)
+    target: (h, w)
+    """
+    
+    h, w = src
+    th, tw = target
+    
+    r = h / w
+    if r > (th / tw):
+        resize_height = th
+        resize_width = int(round(th / h * w))
+    else:
+        resize_width = tw
+        resize_height = int(round(tw / w * h))
+
+    crop_top = int(round((th - resize_height) / 2.0))
+    crop_left = int(round((tw - resize_width) / 2.0))
+
+    return (crop_top, crop_left), (crop_top + resize_height, crop_left + resize_width)
+
+
 def count_params(model, verbose=False):
     total_params = sum(p.numel() for p in model.parameters())
     if verbose:
