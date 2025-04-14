@@ -23,7 +23,6 @@ flow:
     dit_weight: ${flow.params.ckpt_path}/hunyuan-video-i2v-720p/transformers/mp_rank_00_model_states.pt
     first_stage_ckpt_path: ${flow.params.ckpt_path}/hunyuan-video-i2v-720p/vae
 
-
     # Undeveloppred Settings
     use_fp8: false
     ulysses_degree: 1

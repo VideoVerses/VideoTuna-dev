@@ -44,30 +44,6 @@ model:
         pretrained_model_name_or_path: checkpoints/cogvideo/CogVideoX-5b-I2V
         subfolder: scheduler
 
-# data configs
-# data:
-#   target: videotuna.data.lightning_data.DataModuleFromConfig
-#   params:
-#     batch_size: 2
-#     num_workers: 16
-#     wrap: false
-#     train:
-#       target: videotuna.data.cogvideo_dataset.VideoDataset
-#       params:
-#         instance_data_root: inputs/data-cartoon-talk #"inputs/t2v/cogvideo/elon_musk_video"
-#         dataset_name: null
-#         dataset_config_name: null
-#         caption_column: "labels.txt"
-#         video_column: "videos.txt"
-#         height: 480
-#         width: 720
-#         fps: 28
-#         max_num_frames: 2
-#         skip_frames_start: 0
-#         skip_frames_end: 0
-#         cache_dir: ~/.cache
-#         id_token: null
-#         image_to_video: true
 data:
   target: videotuna.data.lightning_data.DataModuleFromConfig
   params:
