@@ -245,7 +245,7 @@ VideoTuna/
 <!-- |Open-Sora 1.1|144p & 240p & 480p, 0~15s|[Stage 2](https://huggingface.co/hpcai-tech/OpenSora-STDiT-v2-stage2) -->
 <!-- |Open-Sora 1.1|144p to 720p, 0~15s|[Stage 3](https://huggingface.co/hpcai-tech/OpenSora-STDiT-v2-stage3) -->
 
-Please check [docs/CHECKPOINTS.md](docs/CHECKPOINTS.md) to download all the model checkpoints.
+Please check [docs/checkpoints.md](docs/checkpoints.md) to download all the model checkpoints.
 
 ## 🔆 Get started
 
@@ -366,8 +366,8 @@ poetry run pip install "modelscope[cv]" -f https://modelscope.oss-cn-beijing.ali
 
 ### 2.Prepare checkpoints
 
-- Please follow [docs/CHECKPOINTS.md](https://github.com/VideoVerses/VideoTuna/blob/main/docs/CHECKPOINTS.md) to download model checkpoints.  
-- After downloading, the model checkpoints should be placed as [Checkpoint Structure](https://github.com/VideoVerses/VideoTuna/blob/main/docs/CHECKPOINTS.md#checkpoint-orgnization-structure).
+- Please follow [docs/checkpoints.md](https://github.com/VideoVerses/VideoTuna/blob/main/docs/checkpoints.md) to download model checkpoints.  
+- After downloading, the model checkpoints should be placed as [Checkpoint Structure](https://github.com/VideoVerses/VideoTuna/blob/main/docs/checkpoints.md#checkpoint-orgnization-structure).
 
 ### 3.Inference state-of-the-art T2V/I2V/T2I models
 
@@ -420,7 +420,7 @@ Please follow the [docs/datasets.md](docs/datasets.md) to try provided toydatase
 Before started, we assume you have finished the following two preliminary steps:
   1) [Install the environment](#1prepare-environment)
   2) [Prepare the dataset   ](#41-prepare-dataset)
-  3) [Download the checkpoints](docs/CHECKPOINTS.md) and get these two checkpoints
+  3) [Download the checkpoints](docs/checkpoints.md) and get these two checkpoints
 ```
   ll checkpoints/videocrafter/t2v_v2_512/model.ckpt
   ll checkpoints/stablediffusion/v2-1_512-ema/model.ckpt
