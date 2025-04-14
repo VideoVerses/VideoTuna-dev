@@ -266,7 +266,7 @@ Hunyuan model uses it to reduce memory usage and speed up inference. If it is no
 ``` shell
 poetry run install-flash-attn 
 ```
-- ↑ It takes 1 minitues.
+- ↑ It takes 1 minitue.
 
 **Optional: Video-to-video enhancement**
 ```
@@ -274,7 +274,6 @@ poetry run pip install "modelscope[cv]" -f https://modelscope.oss-cn-beijing.ali
 ```
 - If this command ↑ get stucked, kill and re-run it will solve the issue.
 
-<br>
 
 #### (2) If you use Linux and Poetry (without Conda):
 <details>
