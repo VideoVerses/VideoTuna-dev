@@ -32,7 +32,7 @@ from videotuna.third_party.flux.data_backend.factory import (
     configure_multi_databackend,
     random_dataloader_iterator,
 )
-from videotuna.third_party.flux.models.smoldit import get_resize_crop_region_for_grid
+from videotuna.utils.common_utils import get_resize_crop_region_for_grid
 from videotuna.third_party.flux.training import steps_remaining_in_epoch
 from videotuna.third_party.flux.training.adapter import (
     determine_adapter_target_modules,
@@ -1997,7 +1997,7 @@ class Trainer:
                 grid_width = width // 8 // self.transformer.config.patch_size
                 base_size = 512 // 8 // self.transformer.config.patch_size
                 grid_crops_coords = get_resize_crop_region_for_grid(
-                    (grid_height, grid_width), base_size
+                    (grid_height, grid_width), (base_size, base_size)
                 )
                 inputs = {
                     "hidden_states": noisy_latents,

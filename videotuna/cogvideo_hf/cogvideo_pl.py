@@ -1,51 +1,24 @@
 import inspect
 import math
+from tqdm import tqdm
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-# from videotuna.base.ddpm3d import DDPM
-import pytorch_lightning as pl
 import torch
-from diffusers import (
-    AutoencoderKLCogVideoX,
-    CogVideoXDPMScheduler,
-    CogVideoXTransformer3DModel,
-)
+import pytorch_lightning as pl
+from diffusers import CogVideoXDPMScheduler
 from diffusers.callbacks import MultiPipelineCallbacks, PipelineCallback
 from diffusers.models.embeddings import get_3d_rotary_pos_embed
 from diffusers.utils.torch_utils import randn_tensor
 from diffusers.video_processor import VideoProcessor
-from peft import (
-    LoraConfig,
-    get_peft_model,
-    get_peft_model_state_dict,
-    set_peft_model_state_dict,
-)
+from peft import get_peft_model
 from transformers import T5EncoderModel, T5Tokenizer
 
 from videotuna.utils.common_utils import instantiate_from_config
+from videotuna.utils.common_utils import precision_to_dtype, get_resize_crop_region_for_grid
 
 
 def has_nan(tensor):
     return torch.isnan(tensor).any()
-
-
-# Similar to diffusers.pipelines.hunyuandit.pipeline_hunyuandit.get_resize_crop_region_for_grid
-def get_resize_crop_region_for_grid(src, tgt_width, tgt_height):
-    tw = tgt_width
-    th = tgt_height
-    h, w = src
-    r = h / w
-    if r > (th / tw):
-        resize_height = th
-        resize_width = int(round(th / h * w))
-    else:
-        resize_width = tw
-        resize_height = int(round(tw / w * h))
-
-    crop_top = int(round((th - resize_height) / 2.0))
-    crop_left = int(round((tw - resize_width) / 2.0))
-
-    return (crop_top, crop_left), (crop_top + resize_height, crop_left + resize_width)
 
 
 # Copied from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion.retrieve_timesteps
@@ -128,13 +101,10 @@ class CogVideoXWorkFlow(pl.LightningModule):
         super().__init__()
         self.logdir = logdir
         self.learning_rate = learning_rate
-        # condtion stage use T5 class, which is availale at lvdm.module.encoders.condtion.FrozenT5Embedder
-        # but we need to be aware of the model name and tokenizer name
-        # here is the same with DDPM
-        # print(first_stage_config)
+        
         self.instantiate_first_stage(first_stage_config)
-        # max_sequence_length=226
         self.instantiate_cond_stage(cond_stage_config)
+        
         self.vae_scale_factor_spatial = (
             2 ** (len(self.vae.config.block_out_channels) - 1)
             if hasattr(self, "first_stage_model") and self is not None
@@ -150,9 +120,6 @@ class CogVideoXWorkFlow(pl.LightningModule):
             vae_scale_factor=self.vae_scale_factor_spatial
         )
 
-        # CogVideoX-2b weights are stored in float16
-        # CogVideoX-5b weights are stored in bfloat16
-        # load_dtype = torch.bfloat16 if "5b" in config.pretrained_model_name_or_path.lower() else torch.float16
         self.model = instantiate_from_config(denoiser_config)
         
         if "load_dtype" in denoiser_config.params:
@@ -163,10 +130,8 @@ class CogVideoXWorkFlow(pl.LightningModule):
                 print("Convert denoiser to bf16")
                 self.model.bfloat16()
 
-        # self.model = DiffusionWrapper(unet_config, conditioning_key)
-        # what I notice is : the most code in DDPM that seems different from there,
-        # are most schduler
         self.scheduler = instantiate_from_config(scheduler_config)
+        
         # add adapter config (Support Lora and HRA )
         self.lora_args = []
         if adapter_config is not None:
@@ -181,13 +146,9 @@ class CogVideoXWorkFlow(pl.LightningModule):
         self.model = get_peft_model(self.model, transformer_adapter_config)
         self.model.print_trainable_parameters()
 
-    ## VAE is named as first_stage_model
-    ## followed functions are all first stage related.
     def instantiate_first_stage(self, config):
-        # import pdb;pdb.set_trace()
         model = instantiate_from_config(config)
         self.vae = model.eval()
-        # self.vae.train = disabled_train
         self.vae.requires_grad_(False)
 
     @torch.no_grad()
@@ -212,10 +173,8 @@ class CogVideoXWorkFlow(pl.LightningModule):
         """same as decode_first_stage but without decorator"""
         return self._decode_core(z, **kwargs)
 
-    ## second stage : text condition and other condtions
     def instantiate_cond_stage(self, config):
         model = instantiate_from_config(config)
-        # # in finetune cogvideox don't train as default
         if config.get("freeze", True):
             self.cond_stage_model = model.eval()
             self.cond_stage_model.requires_grad_(False)
@@ -254,12 +213,6 @@ class CogVideoXWorkFlow(pl.LightningModule):
                 f"`height` and `width` have to be divisible by 8 but are {height} and {width}."
             )
 
-        # if callback_on_step_end_tensor_inputs is not None and not all(
-        #     k in self._callback_tensor_inputs for k in callback_on_step_end_tensor_inputs
-        # ):
-        #     raise ValueError(
-        #         f"`callback_on_step_end_tensor_inputs` has to be in {self._callback_tensor_inputs}, but found {[k for k in callback_on_step_end_tensor_inputs if k not in self._callback_tensor_inputs]}"
-        #     )
         if prompt is not None and prompt_embeds is not None:
             raise ValueError(
                 f"Cannot forward both `prompt`: {prompt} and `prompt_embeds`: {prompt_embeds}. Please make sure to"
@@ -321,7 +274,7 @@ class CogVideoXWorkFlow(pl.LightningModule):
         prompt_embeds = self.cond_stage_model.transformer(text_input_ids.to(device))[0]
         prompt_embeds = prompt_embeds.to(dtype=dtype, device=device)
 
-        # duplicate text embeddings for each generation per prompt, using mps friendly method
+        # duplicate text embeddings for multiple samples per prompt
         _, seq_len, _ = prompt_embeds.shape
         prompt_embeds = prompt_embeds.repeat(1, num_videos_per_prompt, 1)
         prompt_embeds = prompt_embeds.view(
@@ -371,7 +324,6 @@ class CogVideoXWorkFlow(pl.LightningModule):
         device = device or self._execution_device
 
         prompt = [prompt] if isinstance(prompt, str) else prompt
-        # print(">>>> self.encode_prompt",prompt);exit()
         if prompt is not None:
             batch_size = len(prompt)
         else:
@@ -454,12 +406,13 @@ class CogVideoXWorkFlow(pl.LightningModule):
         return latents
 
     def decode_latents(self, latents: torch.Tensor) -> torch.Tensor:
-        latents = latents.permute(
-            0, 2, 1, 3, 4
-        )  # [batch_size, num_channels, num_frames, height, width]
+        latents = latents.permute(0, 2, 1, 3, 4)  # [batch_size, num_channels, num_frames, height, width]
         latents = 1 / self.vae.config.scaling_factor * latents # [1, 16, 13, 60, 90]
+        
         latents = latents.to(self.vae.dtype)
+        self.model.cpu()
         frames = self.vae.decode(latents).sample
+        self.model.cuda()
         return frames
 
     # Copied from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion.StableDiffusionPipeline.prepare_extra_step_kwargs
@@ -503,7 +456,8 @@ class CogVideoXWorkFlow(pl.LightningModule):
         base_size_height = base_height // (vae_scale_factor_spatial * patch_size)
 
         grid_crops_coords = get_resize_crop_region_for_grid(
-            (grid_height, grid_width), base_size_width, base_size_height
+            (grid_height, grid_width), 
+            (base_size_height, base_size_width)
         )
         freqs_cos, freqs_sin = get_3d_rotary_pos_embed(
             embed_dim=attention_head_dim,
@@ -535,6 +489,7 @@ class CogVideoXWorkFlow(pl.LightningModule):
         prompt_embeds: Optional[torch.FloatTensor] = None,
         negative_prompt_embeds: Optional[torch.FloatTensor] = None,
         output_type: str = "pil",
+        sample_precision: str = None,
         return_dict: bool = True,
         attention_kwargs: Optional[Dict[str, Any]] = None,
         callback_on_step_end: Optional[
@@ -546,6 +501,7 @@ class CogVideoXWorkFlow(pl.LightningModule):
         ] = None,
         callback_on_step_end_tensor_inputs: List[str] = ["latents"],
         max_sequence_length: int = 226,
+        progress_bar: bool = True,
     ) -> Union[Tuple]:
         """
         Function invoked when calling the pipeline for generation.
@@ -653,8 +609,14 @@ class CogVideoXWorkFlow(pl.LightningModule):
             batch_size = len(prompt)
         else:
             batch_size = prompt_embeds.shape[0]
-        # TODO: fix device
-        device = "cuda:0"
+        
+        device = self.device
+        if sample_precision is not None:
+            ori_dtype = self.model.dtype
+            dtype = precision_to_dtype[sample_precision]
+            self.model.to(dtype)
+        else:
+            dtype = self.model.dtype
 
         # here `guidance_scale` is defined analog to the guidance weight `w` of equation (2)
         # of the Imagen paper: https://arxiv.org/pdf/2205.11487.pdf . `guidance_scale = 1`
@@ -671,6 +633,7 @@ class CogVideoXWorkFlow(pl.LightningModule):
             negative_prompt_embeds=negative_prompt_embeds,
             max_sequence_length=max_sequence_length,
             device=device,
+            dtype=dtype,
         )
         if do_classifier_free_guidance:
             prompt_embeds = torch.cat([negative_prompt_embeds, prompt_embeds], dim=0)
@@ -689,7 +652,7 @@ class CogVideoXWorkFlow(pl.LightningModule):
             num_frames,
             height,
             width,
-            prompt_embeds.dtype,
+            dtype,
             device,
             generator,
             latents,
@@ -717,22 +680,21 @@ class CogVideoXWorkFlow(pl.LightningModule):
         num_warmup_steps = max(
             len(timesteps) - num_inference_steps * self.scheduler.order, 0
         )
-        self.interrupt = False
         # for DPM-solver++
-        self.model.cuda()
+        # self.model.cuda()
         old_pred_original_sample = None
-        for i, t in enumerate(timesteps):
-            if self.interrupt:
-                continue
+        if progress_bar:
+            iters = tqdm(enumerate(timesteps), desc="Denoising Steps", total=num_inference_steps)
+        else:
+            iters = enumerate(timesteps)
+        for i, t in iters:
 
             latent_model_input = (
                 torch.cat([latents] * 2) if do_classifier_free_guidance else latents
             )
             latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
-            # print(i,latent_model_input.max(),latent_model_input.min(),has_nan(latent_model_input))
             # broadcast to batch dimension in a way that's compatible with ONNX/Core ML
             timestep = t.expand(latent_model_input.shape[0])
-            # print(i,num_inference_steps)
             # predict noise model_output
             noise_pred = self.model(
                 hidden_states=latent_model_input,
@@ -742,7 +704,6 @@ class CogVideoXWorkFlow(pl.LightningModule):
                 # attention_kwargs=attention_kwargs, # None
                 return_dict=False,
             )[0]
-            noise_pred = noise_pred.float()
 
             # perform guidance
             if use_dynamic_cfg:
@@ -780,7 +741,7 @@ class CogVideoXWorkFlow(pl.LightningModule):
                     **extra_step_kwargs,
                     return_dict=False,
                 )
-            latents = latents.to(prompt_embeds.dtype)
+            latents = latents.to(dtype)
 
             # call the callback, if provided
             if callback_on_step_end is not None:
@@ -794,24 +755,20 @@ class CogVideoXWorkFlow(pl.LightningModule):
                 negative_prompt_embeds = callback_outputs.pop(
                     "negative_prompt_embeds", negative_prompt_embeds
                 )
-            # if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0):
-            #     progress_bar.update()
 
-        self.model.cpu()
         if not output_type == "latent":
             video = self.decode_latents(latents)
-            # video = self.video_processor.postprocess_video(video=video, output_type=output_type)
         else:
             video = latents
 
-        # # Offload all models
-        # self.maybe_free_model_hooks()
-        video = video[None, ...]
-        video = video.cpu()
+        video = video[None, ...].cpu()
+        
         torch.cuda.empty_cache()
+
+        if sample_precision is not None:
+            self.model.to(ori_dtype)
         return video
 
-    # trianing specific functions
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(
             [p for p in self.model.parameters() if p.requires_grad],
@@ -830,7 +787,6 @@ class CogVideoXWorkFlow(pl.LightningModule):
 
     def encode_video(self, video):
         video = video.to(self.device, dtype=self.dtype).unsqueeze(0)
-        # video = video.permute(0, 2, 1, 3, 4)  # [B, C, F, H, W]
         latent_dist = self.vae.encode(video).latent_dist
         return latent_dist
 
@@ -930,13 +886,12 @@ class CogVideoXWorkFlow(pl.LightningModule):
     @torch.no_grad()
     def log_images(self, batch, **kwargs):
         log = dict()
-        
         prompts = batch["caption"]
-        videos = batch["video"]
-        
-        batch_samples = self.sample(prompts, num_inference_steps=20)
-        
-        log["inputs"] = videos
+        batch_samples = self.sample(prompts, 
+                                    num_inference_steps=50,
+                                    sample_precision="bfloat16",
+        )
+        log["gt"] = batch["video"]
         log["samples"] = batch_samples
         return log
 

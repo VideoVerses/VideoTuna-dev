@@ -29,6 +29,7 @@ os.environ["ACCELERATE_LOG_LEVEL"] = "WARNING"
 from accelerate.logging import get_logger
 from diffusers.models.embeddings import get_2d_rotary_pos_embed
 
+from videotuna.utils.common_utils import get_resize_crop_region_for_grid
 from videotuna.third_party.flux import log_format  # noqa
 from videotuna.third_party.flux.caching.memory import reclaim_memory
 from videotuna.third_party.flux.configuration.loader import load_config
@@ -37,7 +38,6 @@ from videotuna.third_party.flux.data_backend.factory import (
     configure_multi_databackend,
     random_dataloader_iterator,
 )
-from videotuna.third_party.flux.models.smoldit import get_resize_crop_region_for_grid
 from videotuna.third_party.flux.training import steps_remaining_in_epoch
 from videotuna.third_party.flux.training.adapter import (
     determine_adapter_target_modules,
@@ -2004,7 +2004,7 @@ class Model(pl.LightningModule):
                 grid_width = width // 8 // self.transformer.config.patch_size
                 base_size = 512 // 8 // self.transformer.config.patch_size
                 grid_crops_coords = get_resize_crop_region_for_grid(
-                    (grid_height, grid_width), base_size
+                    (grid_height, grid_width), (base_size, base_size)
                 )
                 inputs = {
                     "hidden_states": noisy_latents,

@@ -1,18 +1,20 @@
 import inspect
 import math
 import random
+from tqdm import tqdm
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import PIL
 import torch
+
 from diffusers import CogVideoXDPMScheduler
 from diffusers.callbacks import MultiPipelineCallbacks, PipelineCallback
 from diffusers.image_processor import PipelineImageInput
 from diffusers.pipelines.cogvideo.pipeline_output import CogVideoXPipelineOutput
 from diffusers.utils.torch_utils import randn_tensor
 
-from videotuna.cogvideo_hf.cogvideo_pl import CogVideoXWorkFlow
-from tqdm import tqdm
+from videotuna.cogvideo_hf.cogvideo_pl import CogVideoXWorkFlow, retrieve_timesteps
+from videotuna.utils.common_utils import precision_to_dtype
 
 def retrieve_latents(
     encoder_output: torch.Tensor,
@@ -27,72 +29,6 @@ def retrieve_latents(
         return encoder_output.latents
     else:
         raise AttributeError("Could not access latents of provided encoder_output")
-
-
-def retrieve_timesteps(
-    scheduler,
-    num_inference_steps: Optional[int] = None,
-    device: Optional[Union[str, torch.device]] = None,
-    timesteps: Optional[List[int]] = None,
-    sigmas: Optional[List[float]] = None,
-    **kwargs,
-):
-    """
-    Calls the scheduler's `set_timesteps` method and retrieves timesteps from the scheduler after the call. Handles
-    custom timesteps. Any kwargs will be supplied to `scheduler.set_timesteps`.
-
-    Args:
-        scheduler (`SchedulerMixin`):
-            The scheduler to get timesteps from.
-        num_inference_steps (`int`):
-            The number of diffusion steps used when generating samples with a pre-trained model. If used, `timesteps`
-            must be `None`.
-        device (`str` or `torch.device`, *optional*):
-            The device to which the timesteps should be moved to. If `None`, the timesteps are not moved.
-        timesteps (`List[int]`, *optional*):
-            Custom timesteps used to override the timestep spacing strategy of the scheduler. If `timesteps` is passed,
-            `num_inference_steps` and `sigmas` must be `None`.
-        sigmas (`List[float]`, *optional*):
-            Custom sigmas used to override the timestep spacing strategy of the scheduler. If `sigmas` is passed,
-            `num_inference_steps` and `timesteps` must be `None`.
-
-    Returns:
-        `Tuple[torch.Tensor, int]`: A tuple where the first element is the timestep schedule from the scheduler and the
-        second element is the number of inference steps.
-    """
-    if timesteps is not None and sigmas is not None:
-        raise ValueError(
-            "Only one of `timesteps` or `sigmas` can be passed. Please choose one to set custom values"
-        )
-    if timesteps is not None:
-        accepts_timesteps = "timesteps" in set(
-            inspect.signature(scheduler.set_timesteps).parameters.keys()
-        )
-        if not accepts_timesteps:
-            raise ValueError(
-                f"The current scheduler class {scheduler.__class__}'s `set_timesteps` does not support custom"
-                f" timestep schedules. Please check whether you are using the correct scheduler."
-            )
-        scheduler.set_timesteps(timesteps=timesteps, device=device, **kwargs)
-        timesteps = scheduler.timesteps
-        num_inference_steps = len(timesteps)
-    elif sigmas is not None:
-        accept_sigmas = "sigmas" in set(
-            inspect.signature(scheduler.set_timesteps).parameters.keys()
-        )
-        if not accept_sigmas:
-            raise ValueError(
-                f"The current scheduler class {scheduler.__class__}'s `set_timesteps` does not support custom"
-                f" sigmas schedules. Please check whether you are using the correct scheduler."
-            )
-        scheduler.set_timesteps(sigmas=sigmas, device=device, **kwargs)
-        timesteps = scheduler.timesteps
-        num_inference_steps = len(timesteps)
-    else:
-        scheduler.set_timesteps(num_inference_steps, device=device, **kwargs)
-        timesteps = scheduler.timesteps
-    return timesteps, num_inference_steps
-
 
 class CogVideoXI2V(CogVideoXWorkFlow):
     _callback_tensor_inputs = [
@@ -126,9 +62,7 @@ class CogVideoXI2V(CogVideoXWorkFlow):
         self.noised_image_dropout = noised_image_dropout
 
     def encode_image(self, image):
-        image = image.to(self.device, dtype=self.dtype).unsqueeze(
-            0
-        )  # [3, 1, 480, 720].unsqueeze(0)
+        image = image.to(self.device, dtype=self.dtype).unsqueeze(0) # [3, 1, 480, 720] -> [1, 3, 1, 480, 720]
         latent_dist = self.vae.encode(image).latent_dist
         return latent_dist
 
@@ -349,8 +283,7 @@ class CogVideoXI2V(CogVideoXWorkFlow):
             )
 
         if callback_on_step_end_tensor_inputs is not None and not all(
-            k in self._callback_tensor_inputs
-            for k in callback_on_step_end_tensor_inputs
+            k in self._callback_tensor_inputs for k in callback_on_step_end_tensor_inputs
         ):
             raise ValueError(
                 f"`callback_on_step_end_tensor_inputs` has to be in {self._callback_tensor_inputs}, but found {[k for k in callback_on_step_end_tensor_inputs if k not in self._callback_tensor_inputs]}"
@@ -414,6 +347,7 @@ class CogVideoXI2V(CogVideoXWorkFlow):
         prompt_embeds: Optional[torch.FloatTensor] = None,
         negative_prompt_embeds: Optional[torch.FloatTensor] = None,
         output_type: str = "pil",
+        sample_precision: str = None,
         return_dict: bool = True,
         callback_on_step_end: Optional[
             Union[
@@ -539,6 +473,12 @@ class CogVideoXI2V(CogVideoXWorkFlow):
             batch_size = prompt_embeds.shape[0]
 
         device = self.device
+        if sample_precision is not None:
+            ori_dtype = self.model.dtype
+            dtype = precision_to_dtype[sample_precision]
+            self.model.to(dtype)
+        else:
+            dtype = self.model.dtype
 
         # here `guidance_scale` is defined analog to the guidance weight `w` of equation (2)
         # of the Imagen paper: https://arxiv.org/pdf/2205.11487.pdf . `guidance_scale = 1`
@@ -555,7 +495,7 @@ class CogVideoXI2V(CogVideoXWorkFlow):
             negative_prompt_embeds=negative_prompt_embeds,
             max_sequence_length=max_sequence_length,
             device=device,
-            dtype=self.model.dtype,
+            dtype=dtype,
         )
         if do_classifier_free_guidance:
             prompt_embeds = torch.cat([negative_prompt_embeds, prompt_embeds], dim=0)
@@ -571,7 +511,7 @@ class CogVideoXI2V(CogVideoXWorkFlow):
             pass
         else:
             image = self.video_processor.preprocess(image, height=height, width=width).to(
-                device, dtype=prompt_embeds.dtype
+                device, dtype=dtype
             )
 
         # 5. Prepare latents
@@ -583,7 +523,7 @@ class CogVideoXI2V(CogVideoXWorkFlow):
             num_frames,
             height,
             width,
-            prompt_embeds.dtype,
+            dtype,
             device,
             generator,
             latents,
@@ -609,12 +549,10 @@ class CogVideoXI2V(CogVideoXWorkFlow):
         # for DPM-solver++
         old_pred_original_sample = None
         if progress_bar:
-            iters = tqdm(enumerate(timesteps), desc="Denoising Steps")
+            iters = tqdm(enumerate(timesteps), desc="Denoising Steps", total=num_inference_steps)
         else:
             iters = enumerate(timesteps)
         for i, t in iters:
-            # if self.interrupt:
-            #     continue
 
             latent_model_input = (
                 torch.cat([latents] * 2) if do_classifier_free_guidance else latents
@@ -641,7 +579,6 @@ class CogVideoXI2V(CogVideoXWorkFlow):
                 image_rotary_emb=image_rotary_emb,
                 return_dict=False,
             )[0]
-            noise_pred = noise_pred.float()
 
             # perform guidance
             if use_dynamic_cfg:
@@ -679,7 +616,7 @@ class CogVideoXI2V(CogVideoXWorkFlow):
                     **extra_step_kwargs,
                     return_dict=False,
                 )
-            latents = latents.to(prompt_embeds.dtype)
+            latents = latents.to(dtype)
 
             # call the callback, if provided
             if callback_on_step_end is not None:
@@ -694,37 +631,30 @@ class CogVideoXI2V(CogVideoXWorkFlow):
                     "negative_prompt_embeds", negative_prompt_embeds
                 )
 
-            # if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0):
-            #     progress_bar.update()
 
         if not output_type == "latent":
             video = self.decode_latents(latents)
-            # video = self.video_processor.postprocess_video(video=video, output_type=output_type)
         else:
             video = latents
 
-        # self.model.cpu()
-        # Offload all models
-        # self.maybe_free_model_hooks()
+        video = video[None, ...].cpu()
 
-        # if not return_dict:
-        #     return (video,)
-
-        video = video[None, ...]
-        video = video.cpu()
         torch.cuda.empty_cache()
+
+        if sample_precision is not None:
+            self.model.to(ori_dtype)
         return video
 
-        # return CogVideoXPipelineOutput(frames=video)
 
     @torch.no_grad()
     def log_images(self, batch, **kwargs):
         log = dict()
-        
         images = batch["image"].to(dtype=self.dtype) # [B, C, T, H, W] 
         prompts = batch["caption"]
-        batch_samples = self.sample(images, prompts, num_inference_steps=20)
-        
+        batch_samples = self.sample(images, prompts, 
+                                    num_inference_steps=50,
+                                    sample_precision="bfloat16",
+        )
         log["inputs"] = batch["image"]
         log["prompts"] = batch["caption"]
         log["samples"] = batch_samples
