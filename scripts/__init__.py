@@ -161,6 +161,8 @@ def inference_cogvideo_i2v_lora():
             "6666",
             "--mode",
             "i2v",
+            "--denoiser_precision",
+            "bf16"
         ]
         + sys.argv[1:],
         check=False,
@@ -169,7 +171,7 @@ def inference_cogvideo_i2v_lora():
 
 
 def inference_cogvideo_lora():
-    config = "configs/004_cogvideox/cogvideo2b.yaml"
+    config = "configs/004_cogvideox/cogvideo5b.yaml"
     prompt_file = "inputs/t2v/prompts.txt"
     savedir = f"results/t2v/{current_time}-cogvideo"
     ckpt = "{YOUR_CKPT_PATH}"
@@ -195,6 +197,8 @@ def inference_cogvideo_lora():
             "16",
             "--seed",
             "6666",
+            "--denoiser_precision",
+            "bf16"
         ]
         + sys.argv[1:],
         check=False,
@@ -828,7 +832,8 @@ def train_cogvideox_t2v_lora():
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
     # Dependencies
-    config = "configs/004_cogvideox/cogvideo2b.yaml"  # Experiment config
+    config = "configs/004_cogvideox/cogvideo5b.yaml"  # Experiment config
+    datapath = "data/apply_lipstick/metadata.csv"
 
     # Experiment settings
     resroot = "results/train"  # Experiment saving directory
@@ -847,6 +852,8 @@ def train_cogvideox_t2v_lora():
             "--devices",
             "0,",
             "lightning.trainer.num_nodes=1",
+            f"data.params.train.params.csv_path={datapath}",
+            f"data.params.validation.params.csv_path={datapath}",
             "--auto_resume",
         ]
         + sys.argv[1:],
