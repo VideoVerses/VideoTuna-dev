@@ -123,6 +123,7 @@ class CogVideoXWorkFlow(pl.LightningModule):
         self.model = instantiate_from_config(denoiser_config)
         
         if "load_dtype" in denoiser_config.params:
+            # only used in inference
             if denoiser_config.params.load_dtype == "fp16":
                 print("Convert denoiser to fp16")
                 self.model.half()
@@ -137,9 +138,10 @@ class CogVideoXWorkFlow(pl.LightningModule):
         if adapter_config is not None:
             self.inject_adapter(adapter_config)
 
+        self.model.enable_gradient_checkpointing()
+
     def inject_adapter(self, adapter_config):
         self.model.requires_grad_(False)
-        self.model.enable_gradient_checkpointing()
         print("Injecting lora adapter")
         transformer_adapter_config = instantiate_from_config(adapter_config)
         print(transformer_adapter_config)
@@ -777,9 +779,11 @@ class CogVideoXWorkFlow(pl.LightningModule):
         return optimizer
 
     def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
+        # filter out lora related parameters
         new_satate_dict = checkpoint["state_dict"]
         new_satate_dict = {k: v for k, v in new_satate_dict.items() if "lora" in k}
-        checkpoint["state_dict"] = new_satate_dict
+        if len(new_satate_dict) > 0:
+            checkpoint["state_dict"] = new_satate_dict
         return checkpoint
 
     def on_load_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
@@ -800,7 +804,7 @@ class CogVideoXWorkFlow(pl.LightningModule):
         videos = [self.encode_video(video) for video in batch["video"]]
         videos = [video.sample() * self.vae.config.scaling_factor for video in videos]
         videos = torch.cat(videos, dim=0)
-        videos = videos.to(memory_format=torch.contiguous_format).float()
+        videos = videos.to(memory_format=torch.contiguous_format)
         # prompt
         prompts = [item for item in batch["caption"]]
         return {
@@ -823,7 +827,6 @@ class CogVideoXWorkFlow(pl.LightningModule):
                 num_videos_per_prompt=1,
                 max_sequence_length=max_sequence_length,
                 device=self.device,
-                dtype=self.dtype,
             )
 
         batch_size, num_frames, num_channels, height, width = model_input.shape

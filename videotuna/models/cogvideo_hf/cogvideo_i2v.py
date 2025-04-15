@@ -78,16 +78,14 @@ class CogVideoXI2V(CogVideoXWorkFlow):
         videos = [self.encode_video(video) for video in batch["video"]]
         videos = [video.sample() * self.vae.config.scaling_factor for video in videos]
         videos = torch.cat(videos, dim=0)
-        videos = videos.to(memory_format=torch.contiguous_format).float()
+        videos = videos.to(memory_format=torch.contiguous_format)
         # image latents
         images = [self.encode_image(image) for image in batch["image"]]
         images = [image.sample() * self.vae.config.scaling_factor for image in images]
-        images = torch.cat(images, dim=0).to(
-            dtype=torch.float32, memory_format=torch.contiguous_format
-        )
+        images = torch.cat(images, dim=0).to(memory_format=torch.contiguous_format)
         
-        videos = videos.permute(0, 2, 1, 3, 4).to(dtype=self.dtype) # [B, C, T, H, W] -> [B, T, C, H, W]
-        images = images.permute(0, 2, 1, 3, 4).to(dtype=self.dtype) # [B, C, T, H, W] -> [B, T, C, H, W]
+        videos = videos.permute(0, 2, 1, 3, 4).contiguous() # [B, C, T, H, W] -> [B, T, C, H, W]
+        images = images.permute(0, 2, 1, 3, 4).contiguous() # [B, C, T, H, W] -> [B, T, C, H, W]
 
         # pad conditional image latents
         padding_shape = (
@@ -121,7 +119,6 @@ class CogVideoXI2V(CogVideoXWorkFlow):
                 num_videos_per_prompt=1,
                 max_sequence_length=max_sequence_length,
                 device=self.device,
-                dtype=self.dtype,
             )
 
         batch_size, num_frames, num_channels, height, width = model_input.shape
