@@ -11,7 +11,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-deepspeed = "0.15.4"
+deepspeed = "0.16.5"
 av = "12.3.0"
 beautifulsoup4 = "4.12.3"
 colossalai = "0.3.6"
@@ -81,6 +81,7 @@ url = "https://modelscope.oss-cn-beijing.aliyuncs.com/releases/repo.html"
 priority = "supplemental"
 
 [tool.poetry.scripts]
+install-deepspeed = 'scripts:install_deepspeed'
 install-flash-attn = 'scripts:install_flash_attn'
 coverage-report = 'scripts:coverage_report'
 format = 'scripts:code_format'

@@ -1,16 +1,8 @@
 # Installation
 To use deepspeed Zero3 training, please review the following preparation steps.
 
-1. Re-install deepspeed.
-
 ```shell
-DS_BUILD_CPU_ADAM=1  BUILD_UTILS=1  pip install deepspeed -U
-```
-
-2. Install cuda-toolkit.
-
-```shell
-conda install -c "nvidia/label/cuda-xx.x.0" cuda-toolkit
+poetry run install-deepspeed
 ```
 
 # Usage

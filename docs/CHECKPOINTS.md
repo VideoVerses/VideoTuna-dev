@@ -50,6 +50,8 @@ mkdir checkpoints/videocrafter/
 
 mkdir checkpoints/videocrafter/t2v_v2_512
 wget https://huggingface.co/VideoCrafter/VideoCrafter2/resolve/main/model.ckpt -P checkpoints/videocrafter/t2v_v2_512  # videocrafter2-t2v-512
+mkdir checkpoints/videocrafter/t2v_v2_512_refactor
+python tools/videocrafter_checkpoint_converter.py
 
 mkdir checkpoints/videocrafter/t2v_v1_1024
 wget https://huggingface.co/VideoCrafter/Text2Video-1024/resolve/main/model.ckpt -P checkpoints/videocrafter/t2v_v1_1024 # videocrafter1-t2v-1024
@@ -136,6 +138,11 @@ VideoTuna/
         ├── videocrafter/
         │   ├── t2v_v2_512/
         │   │   └── model.ckpt
+        │   ├── t2v_v2_512_refactor/
+        │   │   └── cond_stage.ckpt
+        │   │   └── denoiser.ckpt
+        │   │   └── first_stage.ckpt
+        │   │   └── model_new.ckpt
         │   ├── t2v_v1_1024/
         │   │   └── model.ckpt
         │   └── i2v_v1_512/

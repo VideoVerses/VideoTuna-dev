@@ -9,6 +9,45 @@ from datetime import datetime
 
 current_time = datetime.now().strftime("%Y%m%d%H%M%S")
 
+def install_deepspeed():
+    """
+    Install the flash attention package
+    """
+    command_install_cuda_toolkit = [
+        "conda",
+        "install",
+        "cuda-toolkit=12.1",
+        "-c",
+        "conda-forge",
+        "-c",
+        "nvidia",
+        "-y"
+    ] + sys.argv[1:]
+    command_uninstall_deepspeed = [
+        "pip",
+        "uninstall",
+        "deepspeed",
+        "-y"
+    ]
+    command_install_deepspeed = [
+        "pip",
+        "install",
+        "deepspeed==0.16.5"
+    ]
+    result_cuda_toolkit = subprocess.run(command_install_cuda_toolkit, check=False)
+    if result_cuda_toolkit.returncode != 0:
+        exit(result_cuda_toolkit.returncode)
+
+    
+    result_uninstall_deepspeed = subprocess.run(command_uninstall_deepspeed, check=False)
+    if result_uninstall_deepspeed.returncode != 0:
+        exit(result_uninstall_deepspeed.returncode)
+
+    env = os.environ.copy()
+    env["DS_BUILD_CPU_ADAM"] = "1"
+    env["BUILD_UTILS"] = "1"
+    result_deepspeed = subprocess.run(command_install_deepspeed, check=False, env=env)
+    exit(result_deepspeed.returncode)
 
 def install_flash_attn():
     """
@@ -19,7 +58,7 @@ def install_flash_attn():
         "install",
         "-c",
         "nvidia",
-        "cuda-nvcc",
+        "cuda-nvcc=12.1",
         "-y",
     ] + sys.argv[1:]
     command_install_flash_attn = [

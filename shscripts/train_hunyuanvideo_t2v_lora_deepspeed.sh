@@ -8,7 +8,7 @@ RESROOT="results/train"             # experiment saving directory
 EXPNAME="hunyuanvideo_t2v_lora"          # experiment name 
 CURRENT_TIME=$(date +%Y%m%d%H%M%S)  # current time
 
-python scripts/train_deepspeed.py \
+python scripts/train.py \
 -t \
 --base $CONFIG \
 --logdir $RESROOT \

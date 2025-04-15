@@ -112,6 +112,7 @@ data:
 
 # training configs
 lightning:
+  strategy: deepspeed
   trainer:
     benchmark: True
     num_nodes: 1

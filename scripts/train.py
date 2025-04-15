@@ -235,6 +235,31 @@ if __name__ == "__main__":
                 device_mesh=(4,1),
                 mixed_precision=fp16_policy
             )
+        elif strategy_cfg == "deepspeed":
+            logger.info("running in deepspeed mode")
+            trainer_kwargs["strategy"] = pl.strategies.DeepSpeedStrategy(
+                stage=3,
+                config={
+                    # Use bf16 to prevent loss scale problem. Please refer to https://github.com/hiyouga/LLaMA-Factory/issues/251 for more details.
+                    "bf16": {
+                        "enabled": "auto"
+                    },
+                    "zero_optimization": {
+                        "stage": 3,
+                        "offload_optimizer": {"device": "cpu", "pin_memory": True},
+                        "overlap_comm": True,
+                        "contiguous_gradients": True,
+                    },
+                    "fp16": {
+                        "enabled": False,
+                        "loss_scale": 0,
+                        "loss_scale_window": 1000,
+                        "hysteresis": 2,
+                        "min_loss_scale": 1
+                    },
+                    
+                }
+            )
         else:
             trainer_kwargs["strategy"] = strategy_cfg
     else:
