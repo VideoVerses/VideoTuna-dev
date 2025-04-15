@@ -315,6 +315,9 @@ if __name__ == "__main__":
         try:
             # Strategy is automatically managed, no need to manually check it here
             logger.info(f"<Training in {trainer.strategy.__class__.__name__} Mode>")
+            if trainer.strategy.__class__.__name__ == 'DeepSpeedStrategy':
+                logger.info(f"Make parameter contiguous in case deepseed does not allow non contigouous data")
+                for param in model.parameters(): param.data = param.data.contiguous()
             # Please refer to https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.plugins.precision.MixedPrecision.html for Automatic Mixed Precision (AMP) training
             if trainer.strategy == "deepspeed":
                 with torch.cuda.amp.autocast():
