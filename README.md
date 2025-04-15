@@ -245,102 +245,129 @@ VideoTuna/
 <!-- |Open-Sora 1.1|144p & 240p & 480p, 0~15s|[Stage 2](https://huggingface.co/hpcai-tech/OpenSora-STDiT-v2-stage2) -->
 <!-- |Open-Sora 1.1|144p to 720p, 0~15s|[Stage 3](https://huggingface.co/hpcai-tech/OpenSora-STDiT-v2-stage3) -->
 
-Please check [docs/CHECKPOINTS.md](docs/CHECKPOINTS.md) to download all the model checkpoints.
+Please check [docs/checkpoints.md](docs/checkpoints.md) to download all the model checkpoints.
 
 ## 🔆 Get started
 
 ### 1.Prepare environment
 
-#### (1) If you use Linux and conda
+#### (1) If you use Linux and Conda (Recommend)
 ``` shell
 conda create -n videotuna python=3.10 -y
 conda activate videotuna
 pip install poetry
 poetry install
-poetry run pip install "modelscope[cv]" -f https://modelscope.oss-cn-beijing.aliyuncs.com/releases/repo.html
 ```
-**Flash-attn installation (Optional)**
+- ↑ It takes around 3 minitues.
+
+**Optional: Flash-attn installation**
 
 Hunyuan model uses it to reduce memory usage and speed up inference. If it is not installed, the model will run in normal mode. Install the `flash-attn` via:
 ``` shell
 poetry run install-flash-attn 
 ```
+- ↑ It takes 1 minitue.
 
-#### (2) If you use Linux and Poetry (without conda):
-
-Install Poetry: https://python-poetry.org/docs/#installation  
-Then: 
-``` shell
-poetry config virtualenvs.in-project true # optional but recommended, will ensure the virtual env is created in the project root
-poetry config virtualenvs.create true # enable this argument to ensure the virtual env is created in the project root
-poetry env use python3.10 # will create the virtual env, check with `ls -l .venv`.
-poetry env activate # optional because Poetry commands (e.g. `poetry install` or `poetry run <command>`) will always automatically load the virtual env.
-poetry install
+**Optional: Video-to-video enhancement**
+```
 poetry run pip install "modelscope[cv]" -f https://modelscope.oss-cn-beijing.aliyuncs.com/releases/repo.html
 ```
+- If this command ↑ get stucked, kill and re-run it will solve the issue.
 
-**Flash-attn installation (Optional)**
 
-Hunyuan model uses it to reduce memory usage and speed up inference. If it is not installed, the model will run in normal mode. Install the `flash-attn` via:
-``` shell
-poetry run install-flash-attn
-```
+#### (2) If you use Linux and Poetry (without Conda):
+<details>
+  <summary>Click to check instructions</summary>
+  <br>
+
+  Install Poetry: https://python-poetry.org/docs/#installation  
+  Then:
+
+  ``` shell
+  poetry config virtualenvs.in-project true # optional but recommended, will ensure the virtual env is created in the project root
+  poetry config virtualenvs.create true # enable this argument to ensure the virtual env is created in the project root
+  poetry env use python3.10 # will create the virtual env, check with `ls -l .venv`.
+  poetry env activate # optional because Poetry commands (e.g. `poetry install` or `poetry run <command>`) will always automatically load the virtual env.
+  poetry install
+  ```
+
+  **Optional: Flash-attn installation**
+
+  Hunyuan model uses it to reduce memory usage and speed up inference. If it is not installed, the model will run in normal mode. Install the `flash-attn` via:
+  ``` shell
+  poetry run install-flash-attn
+  ```
+  
+  **Optional: Video-to-video enhancement**
+  ```
+  poetry run pip install "modelscope[cv]" -f https://modelscope.oss-cn-beijing.aliyuncs.com/releases/repo.html
+  ```
+  - If this command ↑ get stucked, kill and re-run it will solve the issue.
+
+</details>
+
+
 
 #### (3) If you use MacOS
-On MacOS with Apple Silicon chip use [docker compose](https://docs.docker.com/compose/) because some dependencies are not supporting arm64 (e.g. `bitsandbytes`, `decord`, `xformers`).
+<details>
+  <summary>Click to check instructions</summary>
+  <br>
 
-First build:
+  On MacOS with Apple Silicon chip use [docker compose](https://docs.docker.com/compose/) because some dependencies are not supporting arm64 (e.g. `bitsandbytes`, `decord`, `xformers`).
 
-```shell
-docker compose build videotuna
-```
+  First build:
 
-To preserve the project's files permissions set those env variables:
+  ```shell
+  docker compose build videotuna
+  ```
 
-```shell
-export HOST_UID=$(id -u)
-export HOST_GID=$(id -g)
-```
+  To preserve the project's files permissions set those env variables:
 
-Install dependencies:
+  ```shell
+  export HOST_UID=$(id -u)
+  export HOST_GID=$(id -g)
+  ```
 
-```shell
-docker compose run --remove-orphans videotuna poetry env use /usr/local/bin/python
-docker compose run --remove-orphans videotuna poetry run python -m pip install --upgrade pip setuptools wheel
-docker compose run --remove-orphans videotuna poetry install
-docker compose run --remove-orphans videotuna poetry run pip install "modelscope[cv]" -f https://modelscope.oss-cn-beijing.aliyuncs.com/releases/repo.html
-```
+  Install dependencies:
 
-Note: installing swissarmytransformer might hang. Just try again and it should work.
+  ```shell
+  docker compose run --remove-orphans videotuna poetry env use /usr/local/bin/python
+  docker compose run --remove-orphans videotuna poetry run python -m pip install --upgrade pip setuptools wheel
+  docker compose run --remove-orphans videotuna poetry install
+  docker compose run --remove-orphans videotuna poetry run pip install "modelscope[cv]" -f https://modelscope.oss-cn-beijing.aliyuncs.com/releases/repo.html
+  ```
 
-Add a dependency:
+  Note: installing swissarmytransformer might hang. Just try again and it should work.
 
-```shell
-docker compose run --remove-orphans videotuna poetry add wheel
-```
+  Add a dependency:
 
-Check dependencies:
+  ```shell
+  docker compose run --remove-orphans videotuna poetry add wheel
+  ```
 
-```shell
-docker compose run --remove-orphans videotuna poetry run pip freeze
-```
+  Check dependencies:
 
-Run Poetry commands:
+  ```shell
+  docker compose run --remove-orphans videotuna poetry run pip freeze
+  ```
 
-```shell
-docker compose run --remove-orphans videotuna poetry run format
-```
+  Run Poetry commands:
 
-Start a terminal:
+  ```shell
+  docker compose run --remove-orphans videotuna poetry run format
+  ```
 
-```shell
-docker compose run -it --remove-orphans videotuna bash
-```
+  Start a terminal:
+
+  ```shell
+  docker compose run -it --remove-orphans videotuna bash
+  ```
+</details>
 
 ### 2.Prepare checkpoints
 
-Please follow [docs/CHECKPOINTS.md](https://github.com/VideoVerses/VideoTuna/blob/main/docs/CHECKPOINTS.md) to download model checkpoints.
-After downloading, the model checkpoints should be placed as [Checkpoint Structure](https://github.com/VideoVerses/VideoTuna/blob/main/docs/CHECKPOINTS.md#checkpoint-orgnization-structure).
+- Please follow [docs/checkpoints.md](https://github.com/VideoVerses/VideoTuna/blob/main/docs/checkpoints.md) to download model checkpoints.  
+- After downloading, the model checkpoints should be placed as [Checkpoint Structure](https://github.com/VideoVerses/VideoTuna/blob/main/docs/checkpoints.md#checkpoint-orgnization-structure).
 
 ### 3.Inference state-of-the-art T2V/I2V/T2I models
 
@@ -393,7 +420,7 @@ Please follow the [docs/datasets.md](docs/datasets.md) to try provided toydatase
 Before started, we assume you have finished the following two preliminary steps:
   1) [Install the environment](#1prepare-environment)
   2) [Prepare the dataset   ](#41-prepare-dataset)
-  3) [Download the checkpoints](docs/CHECKPOINTS.md) and get these two checkpoints
+  3) [Download the checkpoints](docs/checkpoints.md) and get these two checkpoints
 ```
   ll checkpoints/videocrafter/t2v_v2_512/model.ckpt
   ll checkpoints/stablediffusion/v2-1_512-ema/model.ckpt
