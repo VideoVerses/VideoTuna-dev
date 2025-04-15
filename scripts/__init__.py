@@ -1029,7 +1029,6 @@ def train_videocrafter_v2():
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
     # Dependencies
-    sdckpt = "checkpoints/stablediffusion/v2-1_512-ema/v2-1_512-ema-pruned.ckpt"  # pretrained checkpoint of stablediffusion 2.1
     vc2_ckpt = "checkpoints/videocrafter/t2v_v2_512_refactor"  # pretrained checkpoint of videocrafter2
     config = "configs/001_videocrafter2/vc2_t2v_320x512_refactor.yaml"  # experiment config: model+data+training
 
@@ -1041,8 +1040,6 @@ def train_videocrafter_v2():
             "python",
             "scripts/train_new.py",
             "-t",
-            "--sdckpt",
-            sdckpt,
             "--ckpt",
             vc2_ckpt,
             "--base",

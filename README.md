@@ -420,21 +420,21 @@ Please follow the [docs/datasets.md](docs/datasets.md) to try provided toydatase
 Before started, we assume you have finished the following two preliminary steps:
   1) [Install the environment](#1prepare-environment)
   2) [Prepare the dataset   ](#41-prepare-dataset)
-  3) [Download the checkpoints](docs/checkpoints.md) and get these two checkpoints
+  3) [Download the checkpoints](docs/checkpoints.md) and get following checkpoints
 ```
-  ll checkpoints/videocrafter/t2v_v2_512/model.ckpt
-  ll checkpoints/stablediffusion/v2-1_512-ema/model.ckpt
-```
-
-First, run this command to convert the VC2 checkpoint as we make minor modifications on the keys of the state dict of the checkpoint. The converted checkpoint will be automatically save at `checkpoints/videocrafter/t2v_v2_512/model_converted.ckpt`.
-```
-python tools/convert_checkpoint.py --input_path checkpoints/videocrafter/t2v_v2_512/model.ckpt
+  ll checkpoints/videocrafter/t2v_v2_512_refactor
+  cond_stage.ckpt
+  denoiser.ckpt
+  first_stage.ckpt
+  model_new.ckpt
 ```
 
 Second, run this command to start training on the single GPU. The training results will be automatically saved at `results/train/${CURRENT_TIME}_${EXPNAME}`
 ```
 poetry run train-videocrafter-v2
 ```
+
+Third, replace denoiser.ckpt with the newly trained denoiser.ckpt saved in above directory `results/train/${CURRENT_TIME}_${EXPNAME}/checkpoints/only_trained_model`
 
 #### 2. VideoCrafter2 Lora Fine-tuning
 
