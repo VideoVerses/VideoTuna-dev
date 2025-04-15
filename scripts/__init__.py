@@ -454,30 +454,18 @@ def inference_flux_lora():
     exit(result.returncode)
 
 
-def inference_hunyuan():
+def inference_hunyuan_t2v():
     result = subprocess.run(
         [
             "python",
-            "scripts/inference_hunyuan.py",
-            "--video-size",
-            "544",
-            "960",
-            "--video-length",
-            "129",
-            "--infer-steps",
-            "50",
-            "--prompt",
-            "A cat walks on the grass, realistic style.",
-            "--flow-reverse",
-            "--use-cpu-offload",
-            "--save-path",
-            "./results/t2v/hunyuan",
-            "--model-base",
-            "./checkpoints/hunyuanvideo/HunyuanVideo",
-            "--dit-weight",
-            "./checkpoints/hunyuanvideo/HunyuanVideo/hunyuan-video-t2v-720p/transformers/mp_rank_00_model_states.pt",
-            "--seed",
-            "43",
+            "scripts/inference_cogvideo.py",
+            "--ckpt_path", "checkpoints-hunyuan",
+            "--config", "configs/007_hunyuanvideo/hunyuanvideo_t2v_diffuser.yaml",
+            "--prompt_file", "inputs/t2v/hunyuanvideo/tyler_swift_video/labels.txt",
+            "--savedir", f"results/t2v/hunyuanvideo-{current_time}",
+            "--bs", "1", "--height", "256", "--width", "256",
+            "--fps", "16", 
+            "--seed", "6666"
         ]
         + sys.argv[1:],
         check=False,

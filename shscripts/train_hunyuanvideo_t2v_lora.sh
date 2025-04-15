@@ -1,7 +1,7 @@
 export TOKENIZERS_PARALLELISM=false
 
 # dependencies
-CONFIG="configs/007_hunyuanvideo/hunyuanvideo_diffuser.yaml"   # experiment config 
+CONFIG="configs/007_hunyuanvideo/hunyuanvideo_t2v_diffuser_lora.yaml"   # experiment config 
 
 # exp saving directory: ${RESROOT}/${CURRENT_TIME}_${EXPNAME}
 RESROOT="results/train"             # experiment saving directory

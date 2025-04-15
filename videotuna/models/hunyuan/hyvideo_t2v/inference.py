@@ -9,15 +9,15 @@ from loguru import logger
 
 import torch
 import torch.distributed as dist
-from hyvideo.constants import PROMPT_TEMPLATE, NEGATIVE_PROMPT, PRECISION_TO_TYPE
-from hyvideo.vae import load_vae
-from hyvideo.modules import load_model
-from hyvideo.text_encoder import TextEncoder
-from hyvideo.utils.data_utils import align_to
-from hyvideo.modules.posemb_layers import get_nd_rotary_pos_embed
-from hyvideo.modules.fp8_optimization import convert_fp8_linear
-from hyvideo.diffusion.schedulers import FlowMatchDiscreteScheduler
-from hyvideo.diffusion.pipelines import HunyuanVideoPipeline
+from hyvideo_t2v.constants import PROMPT_TEMPLATE, NEGATIVE_PROMPT, PRECISION_TO_TYPE
+from hyvideo_t2v.vae import load_vae
+from hyvideo_t2v.modules import load_model
+from hyvideo_t2v.text_encoder import TextEncoder
+from hyvideo_t2v.utils.data_utils import align_to
+from hyvideo_t2v.modules.posemb_layers import get_nd_rotary_pos_embed
+from hyvideo_t2v.modules.fp8_optimization import convert_fp8_linear
+from hyvideo_t2v.diffusion.schedulers import FlowMatchDiscreteScheduler
+from hyvideo_t2v.diffusion.pipelines import HunyuanVideoPipeline
 
 try:
     import xfuser

@@ -1,6 +1,6 @@
 # ----------------------diffusers based pl inference ----------------------
 # ‘configs/004_cogvideox/cogvideo2b.yaml’ or 'configs/004_cogvideox/cogvideo5b.yaml'
-config='configs/007_hunyuanvideo/hunyuanvideo_diffuser.yaml'
+config='configs/007_hunyuanvideo/hunyuanvideo_t2v_diffuser_lora.yaml'
 prompt_file="inputs/t2v/hunyuanvideo/tyler_swift_video/labels.txt"
 current_time=$(date +%Y%m%d%H%M%S)
 savedir="results/t2v/$current_time-hunyuanvideo"

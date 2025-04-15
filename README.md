@@ -391,7 +391,7 @@ poetry run pip install "modelscope[cv]" -f https://modelscope.oss-cn-beijing.ali
 
 Task|Model|Command|Length (#frames)|Resolution|Inference Time (s)|GPU Memory (GiB)|
 |:---------|:---------|:---------|:---------|:---------|:---------|:---------|
-|T2V|HunyuanVideo|`poetry run inference-hunyuan`|129|720x1280|1920|59.15|
+|T2V|HunyuanVideo|`poetry run inference-hunyuan-t2v`|129|720x1280|1920|59.15|
 |I2V|HunyuanVideo|`poetry run inference-hunyuan-i2v-720p`|129|720x1280|1718.1|42.17|
 |T2V|WanVideo|`poetry run inference-wanvideo-t2v-720p`|81|720x1280|1940.6|69.11|
 |I2V|WanVideo|`poetry run inference-wanvideo-i2v-720p `|81|720x1280|1650.1|76.91|

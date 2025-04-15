@@ -1,6 +1,6 @@
 model:
   base_learning_rate: 6e-6
-  target: videotuna.models.hunyuanvideo.hunyuanvideo.HunyuanVideoWorkFlow
+  target: videotuna.models.hunyuan.hyvideo_t2v.hunyuanvideo.HunyuanVideoWorkFlow
   params: 
     # VAE of HunyuanVideo
     first_stage_config:
@@ -56,7 +56,12 @@ model:
         pretrained_model_name_or_path: checkpoints-hunyuan
         subfolder: "transformer"
         load_dtype: fp16 # bf16 5b / fp16 2B 
-        # load_dtype: fp32 # bf16 5b / fp16 2B 
+        # load_dtype: fp32 # bf16 5b / fp16 2B
+    
+    # Deepspeed config
+    deepspeed_config:
+      params: 
+        use_cpu_adam: True
         
     
     # Lora module 
@@ -96,8 +101,8 @@ data:
         dataset_config_name: null
         caption_column: "labels.txt"
         video_column: "videos.txt"
-        height: 256
-        width: 256
+        height: 544
+        width: 960
         fps: 28
         max_num_frames: 17
         skip_frames_start: 0
@@ -107,7 +112,7 @@ data:
 
 # training configs
 lightning:
-  strategy: fsdp
+  strategy: deepspeed
   trainer:
     benchmark: True
     num_nodes: 1
