@@ -3,7 +3,7 @@ model:
   scale_lr: False
   target: videotuna.flow.base.ddpm3d.LatentVisualDiffusionFlow
   params:
-    parameterization: "v"
+    parameterization: v
     log_every_t: 200
     first_stage_key: video
     cond_stage_key: caption
@@ -16,11 +16,11 @@ model:
     scale_factor: 0.18215
     use_ema: False
     uncond_prob: 0.05
-    uncond_type: 'empty_seq'
+    uncond_type: empty_seq
     rand_cond_frame: true
     use_scale: true
     scale_b: 0.3
-    fps_condition_type: 'fps'
+    fps_condition_type: fps
 
     diffusion_scheduler_config:
       target: videotuna.flow.base.diffusion_schedulers.LDMScheduler
@@ -90,7 +90,7 @@ model:
       target: videotuna.models.lvdm.modules.encoders.condition.FrozenOpenCLIPEmbedder
       params:
         freeze: true
-        layer: "penultimate"
+        layer: penultimate
 
     img_cond_stage_config:
       target: videotuna.models.lvdm.modules.encoders.condition.FrozenOpenCLIPImageEmbedderV2
@@ -149,7 +149,7 @@ lightning:
       target: videotuna.utils.callbacks.ImageLogger
       params:
         batch_frequency: 2
-        save_dir: 'outputs/samples'
+        save_dir: outputs/samples
         max_images: 6
         to_local: True # save videos into files
         log_images_kwargs:
