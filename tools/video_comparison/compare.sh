@@ -26,7 +26,7 @@ python tools/video_comparison/check_input.py --input_dir=$input_dir --seed=$seed
 
 ################################ videocrafter2 ################################
 ckpt='checkpoints/videocrafter/t2v_v2_512_refactor'
-config='configs/001_videocrafter2/vc2_t2v_320x512_refactor.yaml'
+config='configs/001_videocrafter2/vc2_t2v_320x512.yaml'
 prompt_file="${input_dir}/prompts.txt"
 height=320
 width=512

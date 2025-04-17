@@ -1,6 +1,6 @@
 #480P
 # ckpt='checkpoints/wan/Wan2.1-T2V-14B/'
-# config='configs/008_wanvideo/wan2_1_t2v_14B_refactor.yaml'
+# config='configs/008_wanvideo/wan2_1_t2v_14B.yaml'
 # prompt_file="inputs/t2v/prompts.txt"
 # savedir="results/t2v/wanvideo/480P"
 
@@ -19,7 +19,7 @@
 
 #720P
 ckpt='checkpoints/wan/Wan2.1-T2V-14B/'
-config='configs/008_wanvideo/wan2_1_t2v_14B_refactor.yaml'
+config='configs/008_wanvideo/wan2_1_t2v_14B.yaml'
 prompt_file="inputs/t2v/prompts.txt"
 savedir="results/t2v/wanvideo/720P"
 

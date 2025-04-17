@@ -1,6 +1,6 @@
 ckpt='checkpoints/hunyuanvideo/HunyuanVideo-I2V'
 dit_weight='checkpoints/hunyuanvideo/HunyuanVideo-I2V/hunyuan-video-i2v-720p/transformers/mp_rank_00_model_states.pt'
-config='configs/007_hunyuanvideo/hunyuanvideo_i2v_wrapper_refactor.yaml'
+config='configs/007_hunyuanvideo/hunyuanvideo_i2v.yaml'
 prompt_dir="inputs/i2v/576x1024"
 savedir="results/i2v/hunyuan"
 

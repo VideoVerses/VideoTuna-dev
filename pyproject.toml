@@ -65,6 +65,8 @@ swissarmytransformer = {git = "https://github.com/JingyeChen/SwissArmyTransforme
 pydantic-settings = "^2.8.0"
 xfuser = "^0.4.1"
 dashscope = "^1.23.0"
+tensorboard = "^2.19.0"
+easydict = "^1.13"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.0.0"

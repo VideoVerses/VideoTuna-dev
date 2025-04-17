@@ -599,7 +599,7 @@ def inference_vc1_i2v_320x512():
 
 def inference_stepvideo_t2v_544x992():
     ckpt = "checkpoints/stepvideo/stepvideo-t2v/"
-    config = "configs/009_stepvideo/stepvideo_t2v_refactor.yaml"
+    config = "configs/009_stepvideo/stepvideo_t2v.yaml"
     prompt_file = "inputs/t2v/prompts.txt"
     savedir = "results/t2v/stepvideo"
     result = subprocess.run(
@@ -633,7 +633,7 @@ def inference_stepvideo_t2v_544x992():
 
 def inference_wanvideo_i2v_720p():
     ckpt = "checkpoints/wan/Wan2.1-I2V-14B-720P/"
-    config = "configs/008_wanvideo/wan2_1_i2v_14B_720P_refactor.yaml"
+    config = "configs/008_wanvideo/wan2_1_i2v_14B_720P.yaml"
     prompt_dir = "inputs/i2v/576x1024"
     savedir = "results/i2v/wanvideo/720P"
     result = subprocess.run(
@@ -660,7 +660,7 @@ def inference_wanvideo_i2v_720p():
 
 def inference_wanvideo_t2v_720p():
     ckpt = "checkpoints/wan/Wan2.1-T2V-14B/"
-    config = "configs/008_wanvideo/wan2_1_t2v_14B_refactor.yaml"
+    config = "configs/008_wanvideo/wan2_1_t2v_14B.yaml"
     prompt_file = "inputs/t2v/prompts.txt"
     savedir = "results/t2v/wanvideo/720P"
     result = subprocess.run(
@@ -687,7 +687,7 @@ def inference_wanvideo_t2v_720p():
 def inference_hunyuan_i2v_720p():
     ckpt = "checkpoints/hunyuanvideo/HunyuanVideo-I2V"
     dit_weight = "checkpoints/hunyuanvideo/HunyuanVideo-I2V/hunyuan-video-i2v-720p/transformers/mp_rank_00_model_states.pt"
-    config = "configs/007_hunyuanvideo/hunyuanvideo_i2v_wrapper_refactor.yaml"
+    config = "configs/007_hunyuanvideo/hunyuanvideo_i2v.yaml"
     prompt_dir = "inputs/i2v/576x1024"
     savedir = "results/i2v/hunyuan"
     
@@ -750,7 +750,7 @@ def inference_vc1_t2v_576x1024():
 def inference_vc2_t2v_320x512():
     # Dependencies
     ckpt = "checkpoints/videocrafter/t2v_v2_512_refactor"
-    config = "configs/001_videocrafter2/vc2_t2v_320x512_refactor.yaml"
+    config = "configs/001_videocrafter2/vc2_t2v_320x512.yaml"
     prompt_file = "inputs/t2v/prompts.txt"
     result = subprocess.run(
         [
@@ -1018,7 +1018,7 @@ def train_videocrafter_v2():
 
     # Dependencies
     vc2_ckpt = "checkpoints/videocrafter/t2v_v2_512_refactor"  # pretrained checkpoint of videocrafter2
-    config = "configs/001_videocrafter2/vc2_t2v_320x512_refactor.yaml"  # experiment config: model+data+training
+    config = "configs/001_videocrafter2/vc2_t2v_320x512.yaml"  # experiment config: model+data+training
 
     # Experiment saving directory and parameters
     resroot = "results/train"  # root directory for saving multiple experiments

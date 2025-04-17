@@ -1,5 +1,5 @@
 ckpt='checkpoints/stepvideo/stepvideo-t2v/'
-config='configs/009_stepvideo/stepvideo_t2v_refactor.yaml'
+config='configs/009_stepvideo/stepvideo_t2v.yaml'
 prompt_file="inputs/t2v/prompts.txt"
 savedir="results/t2v/stepvideo"
 
