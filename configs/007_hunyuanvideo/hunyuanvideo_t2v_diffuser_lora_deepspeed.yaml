@@ -6,7 +6,7 @@ model:
     first_stage_config:
       target: diffusers.AutoencoderKLHunyuanVideo
       params:
-        pretrained_model_name_or_path: checkpoints-hunyuan
+        pretrained_model_name_or_path: /project/llmsvgen/yazhou/check-base/maintain/VideoTuna-dev/checkpoints-hunyuan
         subfolder: "vae"
         load_dtype: fp16 # bf16 5b / fp16 2B 
         # load_dtype: fp32 # bf16 5b / fp16 2B 
@@ -15,7 +15,7 @@ model:
     cond_stage_config:
       target: transformers.LlamaModel
       params:
-        pretrained_model_name_or_path: checkpoints-hunyuan
+        pretrained_model_name_or_path: /project/llmsvgen/yazhou/check-base/maintain/VideoTuna-dev/checkpoints-hunyuan
         subfolder: "text_encoder"
         # torch_dtype: auto # bf16 5b / fp16 2B 
         torch_dtype: float16 # bf16 5b / fp16 2B 
@@ -23,7 +23,7 @@ model:
     tokenizer_config: 
       target: transformers.LlamaTokenizerFast
       params:
-        pretrained_model_name_or_path: checkpoints-hunyuan
+        pretrained_model_name_or_path: /project/llmsvgen/yazhou/check-base/maintain/VideoTuna-dev/checkpoints-hunyuan
         subfolder: "tokenizer"
         # torch_dtype: auto # bf16 5b / fp16 2B 
         # torch_dtype: fp16 # bf16 5b / fp16 2B 
@@ -33,7 +33,7 @@ model:
     cond_stage_config_2:
       target: transformers.CLIPTextModel
       params:
-        pretrained_model_name_or_path: checkpoints-hunyuan
+        pretrained_model_name_or_path: /project/llmsvgen/yazhou/check-base/maintain/VideoTuna-dev/checkpoints-hunyuan
         subfolder: "text_encoder_2"
         # torch_dtype: auto # bf16 5b / fp16 2B 
         # torch_dtype: fp16 # bf16 5b / fp16 2B 
@@ -42,7 +42,7 @@ model:
     tokenizer_config_2: 
       target: transformers.CLIPTokenizer
       params:
-        pretrained_model_name_or_path: checkpoints-hunyuan
+        pretrained_model_name_or_path: /project/llmsvgen/yazhou/check-base/maintain/VideoTuna-dev/checkpoints-hunyuan
         subfolder: "tokenizer_2"
         # torch_dtype: auto # bf16 5b / fp16 2B 
         # torch_dtype: fp16 # bf16 5b / fp16 2B 
@@ -53,7 +53,7 @@ model:
     denoiser_config:
       target: diffusers.HunyuanVideoTransformer3DModel
       params:
-        pretrained_model_name_or_path: checkpoints-hunyuan
+        pretrained_model_name_or_path: /project/llmsvgen/yazhou/check-base/maintain/VideoTuna-dev/checkpoints-hunyuan
         subfolder: "transformer"
         load_dtype: fp16 # bf16 5b / fp16 2B 
         # load_dtype: fp32 # bf16 5b / fp16 2B
@@ -77,7 +77,7 @@ model:
     scheduler_config:
       target: diffusers.FlowMatchEulerDiscreteScheduler
       params:
-        pretrained_model_name_or_path: checkpoints-hunyuan
+        pretrained_model_name_or_path: /project/llmsvgen/yazhou/check-base/maintain/VideoTuna-dev/checkpoints-hunyuan
         subfolder: scheduler
     # scheduler_config:
     #   target: diffusers.CogVideoXDPMScheduler

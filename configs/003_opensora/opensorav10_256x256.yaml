@@ -48,7 +48,7 @@ model:
     cond_stage_config:
       target: videotuna.models.opensora.models.text_encoder.t5.T5Encoder
       params:
-        from_pretrained: "DeepFloyd/t5-v1_1-xxl"
+        from_pretrained: DeepFloyd/t5-v1_1-xxl
         model_max_length: 120
         shardformer: False # TODO
 
