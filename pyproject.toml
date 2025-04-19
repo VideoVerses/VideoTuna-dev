@@ -67,6 +67,7 @@ xfuser = "^0.4.1"
 dashscope = "^1.23.0"
 tensorboard = "^2.19.0"
 easydict = "^1.13"
+scikit-learn = "^1.6.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.0.0"
@@ -114,7 +115,9 @@ inference-vc1-t2v-576x1024 = 'scripts:inference_vc1_t2v_576x1024'
 inference-vc2-t2v-320x512 = 'scripts:inference_vc2_t2v_320x512'
 inference-vc2-t2v-320x512-lora = 'scripts:inference_vc2_t2v_320x512_lora'
 train-cogvideox-i2v-lora = 'scripts:train_cogvideox_i2v_lora'
+train-cogvideox-i2v-fullft = 'scripts:train_cogvideox_i2v_fullft'
 train-cogvideox-t2v-lora = 'scripts:train_cogvideox_t2v_lora'
+train-cogvideox-t2v-fullft = 'scripts:train_cogvideox_t2v_fullft'
 train-dynamicrafter = 'scripts:train_dynamicrafter'
 train-flux-lora = 'scripts:train_flux_lora'
 train-opensorav10 = 'scripts:train_opensorav10'
