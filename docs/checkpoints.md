@@ -3,7 +3,32 @@
 
 This document contains commands for preparing model checkpoints and the final checkpoint organization structure.
 
-### Download checkpoints
+
+### 1. Supported Models
+
+|T2V-Models|HxWxL|Checkpoints|
+|:---------|:---------|:--------|
+|HunyuanVideo|720x1280x129|[Hugging Face](https://huggingface.co/tencent/HunyuanVideo)
+|Mochi|848x480, 3s|[Hugging Face](https://huggingface.co/genmo/mochi-1-preview)
+|CogVideoX-2B|480x720x49|[Hugging Face](https://huggingface.co/THUDM/CogVideoX-2b)
+|CogVideoX-5B|480x720x49|[Hugging Face](https://huggingface.co/THUDM/CogVideoX-5b)
+|Open-Sora 1.0|512×512x16|[Hugging Face](https://huggingface.co/hpcai-tech/Open-Sora/blob/main/OpenSora-v1-HQ-16x512x512.pth)
+|Open-Sora 1.0|256×256x16|[Hugging Face](https://huggingface.co/hpcai-tech/Open-Sora/blob/main/OpenSora-v1-HQ-16x256x256.pth)
+|Open-Sora 1.0|256×256x16|[Hugging Face](https://huggingface.co/hpcai-tech/Open-Sora/blob/main/OpenSora-v1-16x256x256.pth)
+|VideoCrafter2|320x512x16|[Hugging Face](https://huggingface.co/VideoCrafter/VideoCrafter2/blob/main/model.ckpt)
+|VideoCrafter1|576x1024x16|[Hugging Face](https://huggingface.co/VideoCrafter/Text2Video-1024/blob/main/model.ckpt)
+|VideoCrafter1|320x512x16|[Hugging Face](https://huggingface.co/VideoCrafter/Text2Video-512/blob/main/model.ckpt)
+
+|I2V-Models|HxWxL|Checkpoints|
+|:---------|:---------|:--------|
+|CogVideoX-5B-I2V|480x720x49|[Hugging Face](https://huggingface.co/THUDM/CogVideoX-5b-I2V)
+|DynamiCrafter|576x1024x16|[Hugging Face](https://huggingface.co/Doubiiu/DynamiCrafter_1024/blob/main/model.ckpt)|
+|VideoCrafter1|320x512x16|[Hugging Face](https://huggingface.co/VideoCrafter/Image2Video-512/blob/main/model.ckpt)|
+
+* Note: H: height; W: width; L: length
+
+
+### 2. Download checkpoints
 Please run the following commands in your terminal to download the checkpoints for each model.
 ```
 mkdir checkpoints
@@ -50,7 +75,6 @@ mkdir checkpoints/videocrafter/
 
 mkdir checkpoints/videocrafter/t2v_v2_512
 wget https://huggingface.co/VideoCrafter/VideoCrafter2/resolve/main/model.ckpt -P checkpoints/videocrafter/t2v_v2_512  # videocrafter2-t2v-512
-mkdir checkpoints/videocrafter/t2v_v2_512_refactor
 python tools/videocrafter_checkpoint_converter.py
 
 mkdir checkpoints/videocrafter/t2v_v1_1024
@@ -112,7 +136,7 @@ git clone https://www.modelscope.cn/iic/Video-to-Video.git
 ```
 
 
-### Checkpoint Orgnization Structure
+### 3. Checkpoint Orgnization Structure
 After downloading, the model checkpoints should be placed as follows:
 
 ```
@@ -138,7 +162,7 @@ VideoTuna/
         ├── videocrafter/
         │   ├── t2v_v2_512/
         │   │   └── model.ckpt
-        │   ├── t2v_v2_512_refactor/
+        │   ├── t2v_v2_512_split/
         │   │   └── cond_stage.ckpt
         │   │   └── denoiser.ckpt
         │   │   └── first_stage.ckpt
