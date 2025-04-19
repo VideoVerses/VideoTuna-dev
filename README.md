@@ -14,14 +14,12 @@
 
 
 ## 🔆 Features
-🌟 **All-in-one framework:** Inference and fine-tune up-to-date video generation models.  
-🌟 **Pre-training:** Build your own foundational text-to-video model.  
+![videotuna-pipeline-fig2](https://github.com/user-attachments/assets/5dbe746c-0fd2-4740-84a9-e0d8987cac72)  
+🌟 **All-in-one framework:** Inference and fine-tune various up-to-date pre-trained video generation models.  
 🌟 **Continuous training:** Keep improving your model with new data.  
-🌟 **Domain-specific fine-tuning:** Adapt models to your specific scenario.  
-🌟 **Concept-specific fine-tuning:** Teach your models with unique concepts.  
-🌟 **Enhanced language understanding:** Improve model comprehension through continuous training.  
-🌟 **Post-processing:** Enhance the videos with video-to-video enhancement model.  
-🌟 **Post-training/Human preference alignment:** Post-training with RLHF for more attractive results.  
+🌟 **Fine-tuning:** Adapt pre-trained models to specific domains.  
+🌟 **Human preference alignment:** Leverage RLHF to align with human preferences.  
+🌟 **Post-processing:** Enhance and rectify the videos with video-to-video enhancement model.  
 
 
 ## 🔆 Updates
