@@ -14,25 +14,13 @@ def install_deepspeed():
     Install the flash attention package
     """
     command_install_cuda_toolkit = [
-        "conda",
-        "install",
-        "cuda-toolkit=12.1",
-        "-c",
-        "conda-forge",
-        "-c",
-        "nvidia",
-        "-y"
+        "conda", "install", "cuda-toolkit=12.1", "-c", "conda-forge", "-c", "nvidia", "-y"
     ] + sys.argv[1:]
     command_uninstall_deepspeed = [
-        "pip",
-        "uninstall",
-        "deepspeed",
-        "-y"
+        "pip", "uninstall", "deepspeed", "-y"
     ]
     command_install_deepspeed = [
-        "pip",
-        "install",
-        "deepspeed==0.16.5"
+        "pip", "install", "deepspeed==0.16.5"
     ]
     result_cuda_toolkit = subprocess.run(command_install_cuda_toolkit, check=False)
     if result_cuda_toolkit.returncode != 0:
@@ -54,18 +42,10 @@ def install_flash_attn():
     Install the flash attention package
     """
     command_install_cuda_nvcc = [
-        "conda",
-        "install",
-        "-c",
-        "nvidia",
-        "cuda-nvcc=12.1",
-        "-y",
+        "conda", "install", "-c", "nvidia", "cuda-nvcc=12.1", "-y"
     ] + sys.argv[1:]
     command_install_flash_attn = [
-        "pip",
-        "install",
-        "flash-attn==2.7.3",
-        "--no-build-isolation",
+        "pip", "install", "flash-attn==2.7.3", "--no-build-isolation"
     ]
     result_nvcc = subprocess.run(command_install_cuda_nvcc, check=False)
     if result_nvcc.returncode != 0:
@@ -105,7 +85,8 @@ def lint():
     Run the linter
     """
     result = subprocess.run(
-        ["ruff", "check", "videotuna", "tests"] + sys.argv[1:], check=False
+        ["ruff", "check", "videotuna", "tests"] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
 
@@ -125,7 +106,8 @@ def coverage_report():
     """
     os.environ["ENV"] = "test"
     result = subprocess.run(
-        ["coverage", "run", "-m", "pytest", "--junitxml", "report.xml"], check=False
+        ["coverage", "run", "-m", "pytest", "--junitxml", "report.xml"], 
+        check=False
     )
     if result.returncode > 0:
         exit(result.returncode)
@@ -143,28 +125,17 @@ def type_check():
 
 def inference_cogvideo_i2v_diffusers():
     result = subprocess.run(
-        [
-            "python",
-            "scripts/inference_cogVideo_diffusers.py",
-            "--generate_type",
-            "i2v",
-            "--model_input",
-            "inputs/i2v/576x1024",
-            "--model_path",
-            "checkpoints/cogvideo/CogVideoX-5b-I2V",
-            "--output_path",
-            "results/i2v/cogvideox5b",
-            "--num_inference_steps",
-            "50",
-            "--guidance_scale",
-            "3.5",
-            "--num_videos_per_prompt",
-            "1",
-            "--dtype",
-            "float16",
-        ]
-        + sys.argv[1:],
-        check=False,
+        ["python", "scripts/inference_cogVideo_diffusers.py", 
+         "--generate_type", "i2v", 
+         "--model_input", "inputs/i2v/576x1024", 
+         "--model_path", "checkpoints/cogvideo/CogVideoX-5b-I2V", 
+         "--output_path", "results/i2v/cogvideox5b", 
+         "--num_inference_steps", "50", 
+         "--guidance_scale", "3.5", 
+         "--num_videos_per_prompt", "1", 
+         "--dtype", "float16"
+        ] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
 
@@ -173,38 +144,23 @@ def inference_cogvideo_i2v_lora():
     config = "configs/004_cogvideox/cogvideo5b-i2v.yaml"
     ckpt = "results/train/cogvideox_i2v_5b/{YOUR_CKPT_PATH}.ckpt"
     prompt_dir = "{YOUR_PROMPT_DIR}"
-
     savedir = f"results/inference/i2v/cogvideox-i2v-lora-{current_time}"
 
     result = subprocess.run(
-        [
-            "python3",
-            "scripts/inference_cogvideo.py",
-            "--config",
-            config,
-            "--ckpt_path",
-            ckpt,
-            "--prompt_dir",
-            prompt_dir,
-            "--savedir",
-            savedir,
-            "--bs",
-            "1",
-            "--height",
-            "480",
-            "--width",
-            "720",
-            "--fps",
-            "16",
-            "--seed",
-            "6666",
-            "--mode",
-            "i2v",
-            "--denoiser_precision",
-            "bf16"
-        ]
-        + sys.argv[1:],
-        check=False,
+        ["python3", "scripts/inference_cogvideo.py", 
+         "--config", config, 
+         "--ckpt_path", ckpt, 
+         "--prompt_dir", prompt_dir, 
+         "--savedir", savedir, 
+         "--bs", "1", 
+         "--height", "480", 
+         "--width", "720", 
+         "--fps", "16", 
+         "--seed", "6666", 
+         "--mode", "i2v", 
+         "--denoiser_precision", "bf16"
+        ] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
 
@@ -215,58 +171,35 @@ def inference_cogvideo_lora():
     savedir = f"results/t2v/{current_time}-cogvideo"
     ckpt = "{YOUR_CKPT_PATH}"
     result = subprocess.run(
-        [
-            "python3",
-            "scripts/inference_cogvideo.py",
-            "--ckpt_path",
-            ckpt,
-            "--config",
-            config,
-            "--prompt_file",
-            prompt_file,
-            "--savedir",
-            savedir,
-            "--bs",
-            "1",
-            "--height",
-            "480",
-            "--width",
-            "720",
-            "--fps",
-            "16",
-            "--seed",
-            "6666",
-            "--denoiser_precision",
-            "bf16"
-        ]
-        + sys.argv[1:],
-        check=False,
+        ["python3", "scripts/inference_cogvideo.py", 
+         "--ckpt_path", ckpt, 
+         "--config", config, 
+         "--prompt_file", prompt_file, 
+         "--savedir", savedir, 
+         "--bs", "1", 
+         "--height", "480", 
+         "--width", "720", 
+         "--fps", "16", 
+         "--seed", "6666", 
+         "--denoiser_precision", "bf16"
+        ] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
 
 
 def inference_cogvideo_t2v_diffusers():
     result = subprocess.run(
-        [
-            "python",
-            "scripts/inference_cogVideo_diffusers.py",
-            "--model_input",
-            "A cat playing with a ball",
-            "--model_path",
-            "checkpoints/cogvideo/CogVideoX-2b",
-            "--output_path",
-            "results/t2v/cogvideox5b",
-            "--num_inference_steps",
-            "50",
-            "--guidance_scale",
-            "3.5",
-            "--num_videos_per_prompt",
-            "1",
-            "--dtype",
-            "float16",
-        ]
-        + sys.argv[1:],
-        check=False,
+        ["python", "scripts/inference_cogVideo_diffusers.py", 
+         "--model_input", "inputs/t2v/prompts.txt", 
+         "--model_path", "checkpoints/cogvideo/CogVideoX-2b", 
+         "--output_path", "results/t2v/cogvideox5b", 
+         "--num_inference_steps", "50", 
+         "--guidance_scale", "3.5", 
+         "--num_videos_per_prompt", "1", 
+         "--dtype", "float16"
+        ] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
 
@@ -274,31 +207,21 @@ def inference_cogvideo_t2v_diffusers():
 def inference_cogvideox1_5_5b_i2v():
     load_transformer = "checkpoints/cogvideo/CogVideoX1.5-5B-SAT/transformer_i2v"
     input_file = "inputs/i2v/576x1024/test_prompts.txt"
-    output_dir = "results/i2v/"
+    output_dir = "results/i2v/cogvideox1.5"
     base = "configs/005_cogvideox1.5/cogvideox1.5_5b.yaml"
     image_folder = "inputs/i2v/576x1024/"
 
     result = subprocess.run(
-        [
-            "python",
-            "scripts/inference_cogVideo_sat_refactor.py",
-            "--load_transformer",
-            load_transformer,
-            "--input_file",
-            input_file,
-            "--output_dir",
-            output_dir,
-            "--base",
-            base,
-            "--mode_type",
-            "i2v",
-            "--sampling_num_frames",
-            "22",
-            "--image_folder",
-            image_folder,
-        ]
-        + sys.argv[1:],
-        check=False,
+        ["python", "scripts/inference_cogVideo_sat_refactor.py", 
+         "--load_transformer", load_transformer, 
+         "--input_file", input_file, 
+         "--output_dir", output_dir, 
+         "--base", base, 
+         "--mode_type", "i2v", 
+         "--sampling_num_frames", "22", 
+         "--image_folder", image_folder
+        ] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
 
@@ -310,24 +233,15 @@ def inference_cogvideox1_5_5b_t2v():
     base = "configs/005_cogvideox1.5/cogvideox1.5_5b.yaml"
 
     result = subprocess.run(
-        [
-            "python",
-            "scripts/inference_cogVideo_sat_refactor.py",
-            "--load_transformer",
-            load_transformer,
-            "--input_file",
-            input_file,
-            "--output_dir",
-            output_dir,
-            "--base",
-            base,
-            "--mode_type",
-            "t2v",
-            "--sampling_num_frames",
-            "22",
-        ]
-        + sys.argv[1:],
-        check=False,
+        ["python", "scripts/inference_cogVideo_sat_refactor.py", 
+         "--load_transformer", load_transformer, 
+         "--input_file", input_file, 
+         "--output_dir", output_dir, 
+         "--base", base, 
+         "--mode_type", "t2v", 
+         "--sampling_num_frames", "22"
+        ] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
 
@@ -339,32 +253,19 @@ def inference_dc_i2v_576x1024():
     savedir = "results/dc-i2v-576x1024"
 
     result = subprocess.run(
-        [
-            "python3",
-            "scripts/inference.py",
-            "--mode",
-            "i2v",
-            "--ckpt_path",
-            ckpt,
-            "--config",
-            config,
-            "--prompt_dir",
-            prompt_dir,
-            "--savedir",
-            savedir,
-            "--bs",
-            "1",
-            "--height",
-            "576",
-            "--width",
-            "1024",
-            "--fps",
-            "10",
-            "--seed",
-            "123",
-        ]
-        + sys.argv[1:],
-        check=False,
+        ["python3", "scripts/inference.py", 
+         "--mode", "i2v", 
+         "--ckpt_path", ckpt, 
+         "--config", config, 
+         "--prompt_dir", prompt_dir, 
+         "--savedir", savedir, 
+         "--bs", "1", 
+         "--height", "576", 
+         "--width", "1024", 
+         "--fps", "10", 
+         "--seed", "123"
+        ] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
 
@@ -375,22 +276,14 @@ def inference_flux_schnell():
     height = 768
 
     command_schnell = [
-        "python",
-        "scripts/inference_flux.py",
-        "--model_type",
-        "schnell",
-        "--prompt",
-        prompt,
-        "--out_path",
-        "results/flux-schnell/",
-        "--width",
-        str(width),
-        "--height",
-        str(height),
-        "--num_inference_steps",
-        "4",
-        "--guidance_scale",
-        "0.",
+        "python", "scripts/inference_flux.py", 
+        "--model_type", "schnell", 
+        "--prompt", prompt, 
+        "--out_path", "results/flux-schnell/", 
+        "--width", str(width), 
+        "--height", str(height), 
+        "--num_inference_steps", "4", 
+        "--guidance_scale", "0."
     ] + sys.argv[1:]
 
     result_schnell = subprocess.run(command_schnell, check=False)
@@ -403,22 +296,14 @@ def inference_flux_dev():
     height = 768
 
     command_dev = [
-        "python",
-        "scripts/inference_flux.py",
-        "--model_type",
-        "dev",
-        "--prompt",
-        prompt,
-        "--out_path",
-        "results/t2i/flux-dev/",
-        "--width",
-        str(width),
-        "--height",
-        str(height),
-        "--num_inference_steps",
-        "50",
-        "--guidance_scale",
-        "0.",
+        "python", "scripts/inference_flux.py", 
+        "--model_type", "dev", 
+        "--prompt", prompt, 
+        "--out_path", "results/t2i/flux-dev/", 
+        "--width", str(width), 
+        "--height", str(height), 
+        "--num_inference_steps", "50", 
+        "--guidance_scale", "0."
     ] + sys.argv[1:]
 
     result_dev = subprocess.run(command_dev, check=False)
@@ -428,47 +313,35 @@ def inference_flux_dev():
 def inference_flux_lora():
     os.environ["lora_ckpt"] = "{YOUR_CORA_CKPT_PATH}"
     result = subprocess.run(
-        [
-            "python",
-            "scripts/inference_flux_lora.py",
-            "--model_type",
-            "dev",
-            "--prompt",
-            "inputs/t2v/prompts.txt",
-            "--out_path",
-            "results/t2i/flux-lora/",
-            "--lora_path",
-            os.environ["lora_ckpt"],
-            "--width",
-            "1360",
-            "--height",
-            "768",
-            "--num_inference_steps",
-            "50",
-            "--guidance_scale",
-            "3.5",
-        ]
-        + sys.argv[1:],
-        check=False,
+        ["python", "scripts/inference_flux_lora.py", 
+         "--model_type", "dev", 
+         "--prompt", "inputs/t2v/prompts.txt", 
+         "--out_path", "results/t2i/flux-lora/", 
+         "--lora_path", os.environ["lora_ckpt"], 
+         "--width", "1360", 
+         "--height", "768", 
+         "--num_inference_steps", "50", 
+         "--guidance_scale", "3.5"
+        ] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
 
 
 def inference_hunyuan_t2v():
     result = subprocess.run(
-        [
-            "python",
-            "scripts/inference_cogvideo.py",
-            "--ckpt_path", "checkpoints-hunyuan",
-            "--config", "configs/007_hunyuanvideo/hunyuanvideo_t2v_diffuser.yaml",
-            "--prompt_file", "inputs/t2v/hunyuanvideo/tyler_swift_video/labels.txt",
-            "--savedir", f"results/t2v/hunyuanvideo-{current_time}",
-            "--bs", "1", "--height", "256", "--width", "256",
-            "--fps", "16", 
-            "--seed", "6666"
-        ]
-        + sys.argv[1:],
-        check=False,
+        ["python", "scripts/inference_cogvideo.py", 
+         "--ckpt_path", "checkpoints-hunyuan", 
+         "--config", "configs/007_hunyuanvideo/hunyuanvideo_t2v_diffuser.yaml", 
+         "--prompt_file", "inputs/t2v/hunyuanvideo/tyler_swift_video/labels.txt", 
+         "--savedir", f"results/t2v/hunyuanvideo-{current_time}", 
+         "--bs", "1", 
+         "--height", "256", 
+         "--width", "256", 
+         "--fps", "16", 
+         "--seed", "6666"
+        ] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
 
@@ -480,28 +353,17 @@ def inference_mochi():
     height = 480
     width = 848
     result = subprocess.run(
-        [
-            "python3",
-            "scripts/inference_mochi.py",
-            "--ckpt_path",
-            ckpt,
-            "--prompt_file",
-            prompt_file,
-            "--savedir",
-            savedir,
-            "--bs",
-            "1",
-            "--height",
-            str(height),
-            "--width",
-            str(width),
-            "--fps",
-            "28",
-            "--seed",
-            "124",
-        ]
-        + sys.argv[1:],
-        check=False,
+        ["python3", "scripts/inference_mochi.py", 
+         "--ckpt_path", ckpt, 
+         "--prompt_file", prompt_file, 
+         "--savedir", savedir, 
+         "--bs", "1", 
+         "--height", str(height), 
+         "--width", str(width), 
+         "--fps", "28", 
+         "--seed", "124"
+        ] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
 
@@ -512,42 +374,24 @@ def inference_opensora_v10_16x256x256():
     prompt_file = "inputs/t2v/prompts.txt"
     res_dir = f"results/t2v/{current_time}-opensorav10-HQ-16x256x256"
     result = subprocess.run(
-        [
-            "python3",
-            "scripts/inference.py",
-            "--seed",
-            "123",
-            "--mode",
-            "t2v",
-            "--ckpt_path",
-            ckpt,
-            "--config",
-            config,
-            "--savedir",
-            res_dir,
-            "--n_samples",
-            "3",
-            "--bs",
-            "2",
-            "--height",
-            "256",
-            "--width",
-            "256",
-            "--unconditional_guidance_scale",
-            "7.0",
-            "--ddim_steps",
-            "50",
-            "--ddim_eta",
-            "1.0",
-            "--prompt_file",
-            prompt_file,
-            "--fps",
-            "8",
-            "--frames",
-            "16",
-        ]
-        + sys.argv[1:],
-        check=False,
+        ["python3", "scripts/inference.py", 
+         "--seed", "123", 
+         "--mode", "t2v", 
+         "--ckpt_path", ckpt, 
+         "--config", config, 
+         "--savedir", res_dir, 
+         "--n_samples", "3", 
+         "--bs", "2", 
+         "--height", "256", 
+         "--width", "256", 
+         "--unconditional_guidance_scale", "7.0", 
+         "--ddim_steps", "50", 
+         "--ddim_eta", "1.0", 
+         "--prompt_file", prompt_file, 
+         "--fps", "8", 
+         "--frames", "16"
+        ] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
 
@@ -568,32 +412,19 @@ def inference_vc1_i2v_320x512():
     prompt_dir = "inputs/i2v/576x1024"
     savedir = "results/i2v/vc1-i2v-320x512"
     result = subprocess.run(
-        [
-            "python3",
-            "scripts/inference.py",
-            "--mode",
-            "i2v",
-            "--ckpt_path",
-            ckpt,
-            "--config",
-            config,
-            "--prompt_dir",
-            prompt_dir,
-            "--savedir",
-            savedir,
-            "--bs",
-            "1",
-            "--height",
-            "320",
-            "--width",
-            "512",
-            "--fps",
-            "8",
-            "--seed",
-            "123",
-        ]
-        + sys.argv[1:],
-        check=False,
+        ["python3", "scripts/inference.py", 
+         "--mode", "i2v", 
+         "--ckpt_path", ckpt, 
+         "--config", config, 
+         "--prompt_dir", prompt_dir, 
+         "--savedir", savedir, 
+         "--bs", "1", 
+         "--height", "320", 
+         "--width", "512", 
+         "--fps", "8", 
+         "--seed", "123"
+        ] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
 
@@ -603,30 +434,18 @@ def inference_stepvideo_t2v_544x992():
     prompt_file = "inputs/t2v/prompts.txt"
     savedir = "results/t2v/stepvideo"
     result = subprocess.run(
-        [
-            "python3",
-            "scripts/inference_new.py",
-            "--ckpt_path",
-            ckpt,
-            "--config",
-            config,
-            "--prompt_file",
-            prompt_file,
-            "--savedir",
-            savedir,
-            "--height",
-            "544",
-            "--width",
-            "992",
-            "--frames",
-            "51",
-            "--seed",
-            "44",
-            "--num_inference_steps",
-            "50",
-        ]
-        + sys.argv[1:],
-        check=False,
+        ["python3", "scripts/inference_new.py", 
+         "--ckpt_path", ckpt, 
+         "--config", config, 
+         "--prompt_file", prompt_file, 
+         "--savedir", savedir, 
+         "--height", "544", 
+         "--width", "992", 
+         "--frames", "51", 
+         "--seed", "44", 
+         "--num_inference_steps", "50"
+        ] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
 
@@ -637,23 +456,20 @@ def inference_wanvideo_i2v_720p():
     prompt_dir = "inputs/i2v/576x1024"
     savedir = "results/i2v/wanvideo/720P"
     result = subprocess.run(
-        [
-            "python3",
-            "scripts/inference_new.py",
-            "--ckpt_path", ckpt,
-            "--config", config,
-            "--prompt_dir", prompt_dir,
-            "--savedir", savedir,
-            "--height", "720",
-            "--width", "1280",
-            "--frames", "81",
-            "--seed", "44",
-            "--num_inference_steps", "40",
-            "--time_shift", "5.0",
-            "--enable_model_cpu_offload"
-        ]
-        + sys.argv[1:],
-        check=False,
+        ["python3", "scripts/inference_new.py", 
+         "--ckpt_path", ckpt, 
+         "--config", config, 
+         "--prompt_dir", prompt_dir, 
+         "--savedir", savedir, 
+         "--height", "720", 
+         "--width", "1280", 
+         "--frames", "81", 
+         "--seed", "44", 
+         "--num_inference_steps", "40", 
+         "--time_shift", "5.0", 
+         "--enable_model_cpu_offload"
+        ] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
 
@@ -664,23 +480,20 @@ def inference_wanvideo_t2v_720p():
     prompt_file = "inputs/t2v/prompts.txt"
     savedir = "results/t2v/wanvideo/720P"
     result = subprocess.run(
-        [
-            "python3",
-            "scripts/inference_new.py",
-            "--ckpt_path", ckpt,
-            "--config", config,
-            "--prompt_file", prompt_file,
-            "--savedir", savedir,
-            "--height", "720",
-            "--width", "1280",
-            "--frames", "81",
-            "--seed", "44",
-            "--time_shift", "5.0",
-            "--num_inference_steps", "50",
-            "--enable_model_cpu_offload"
-        ]
-        + sys.argv[1:],
-        check=False,
+        ["python3", "scripts/inference_new.py", 
+         "--ckpt_path", ckpt, 
+         "--config", config, 
+         "--prompt_file", prompt_file, 
+         "--savedir", savedir, 
+         "--height", "720", 
+         "--width", "1280", 
+         "--frames", "81", 
+         "--seed", "44", 
+         "--time_shift", "5.0", 
+         "--num_inference_steps", "50", 
+         "--enable_model_cpu_offload"
+        ] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
 
@@ -692,23 +505,20 @@ def inference_hunyuan_i2v_720p():
     savedir = "results/i2v/hunyuan"
     
     result = subprocess.run(
-        [
-            "python3",
-            "scripts/inference_new.py",
-            "--ckpt_path", ckpt,
-            "--dit_weight", dit_weight,
-            "--config", config,
-            "--prompt_dir", prompt_dir,
-            "--savedir", savedir,
-            "--height", "720",
-            "--width", "1280",
-            "--i2v_resolution", "720p",
-            "--frames", "129",
-            "--seed", "44",
-            "--num_inference_steps", "50",
-        ]
-        + sys.argv[1:],
-        check=False,
+        ["python3", "scripts/inference_new.py", 
+         "--ckpt_path", ckpt, 
+         "--dit_weight", dit_weight, 
+         "--config", config, 
+         "--prompt_dir", prompt_dir, 
+         "--savedir", savedir, 
+         "--height", "720", 
+         "--width", "1280", 
+         "--i2v_resolution", "720p", 
+         "--frames", "129", 
+         "--seed", "44", 
+         "--num_inference_steps", "50"
+        ] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
 
@@ -719,30 +529,18 @@ def inference_vc1_t2v_576x1024():
     prompt_file = "inputs/t2v/prompts.txt"
     res_dir = "results/t2v/videocrafter1-576x1024"
     result = subprocess.run(
-        [
-            "python3",
-            "scripts/inference.py",
-            "--ckpt_path",
-            ckpt,
-            "--config",
-            config,
-            "--prompt_file",
-            prompt_file,
-            "--savedir",
-            res_dir,
-            "--bs",
-            "1",
-            "--height",
-            "576",
-            "--width",
-            "1024",
-            "--fps",
-            "28",
-            "--seed",
-            "123",
-        ]
-        + sys.argv[1:],
-        check=False,
+        ["python3", "scripts/inference.py", 
+         "--ckpt_path", ckpt, 
+         "--config", config, 
+         "--prompt_file", prompt_file, 
+         "--savedir", res_dir, 
+         "--bs", "1", 
+         "--height", "576", 
+         "--width", "1024", 
+         "--fps", "28", 
+         "--seed", "123"
+        ] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
 
@@ -753,20 +551,13 @@ def inference_vc2_t2v_320x512():
     config = "configs/001_videocrafter2/vc2_t2v_320x512.yaml"
     prompt_file = "inputs/t2v/prompts.txt"
     result = subprocess.run(
-        [
-            "python3",
-            "scripts/inference_new.py",
-            "--ckpt_path",
-            ckpt,
-            "--config",
-            config,
-            "--prompt_file",
-            prompt_file,
-            "--savefps",
-            "30",
-        ]
-        + sys.argv[1:],
-        check=False,
+        ["python3", "scripts/inference_new.py", 
+         "--ckpt_path", ckpt, 
+         "--config", config, 
+         "--prompt_file", prompt_file, 
+         "--savefps", "30"
+        ] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
 
@@ -778,42 +569,24 @@ def inference_vc2_t2v_320x512_lora():
     prompt_file = "inputs/t2v/prompts.txt"
     res_dir = "results/train/003_vc2_lora_ft"
     result = subprocess.run(
-        [
-            "python3",
-            "scripts/inference.py",
-            "--seed",
-            "123",
-            "--mode",
-            "t2v",
-            "--ckpt_path",
-            ckpt,
-            "--lorackpt",
-            lorackpt,
-            "--config",
-            config,
-            "--savedir",
-            res_dir,
-            "--n_samples",
-            "1",
-            "--bs",
-            "1",
-            "--height",
-            "320",
-            "--width",
-            "512",
-            "--unconditional_guidance_scale",
-            "12.0",
-            "--ddim_steps",
-            "50",
-            "--ddim_eta",
-            "1.0",
-            "--prompt_file",
-            prompt_file,
-            "--fps",
-            "28",
-        ]
-        + sys.argv[1:],
-        check=False,
+        ["python3", "scripts/inference.py", 
+         "--seed", "123", 
+         "--mode", "t2v", 
+         "--ckpt_path", ckpt, 
+         "--lorackpt", lorackpt, 
+         "--config", config, 
+         "--savedir", res_dir, 
+         "--n_samples", "1", 
+         "--bs", "1", 
+         "--height", "320", 
+         "--width", "512", 
+         "--unconditional_guidance_scale", "12.0", 
+         "--ddim_steps", "50", 
+         "--ddim_eta", "1.0", 
+         "--prompt_file", prompt_file, 
+         "--fps", "28"
+        ] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
 
@@ -831,25 +604,18 @@ def train_cogvideox_i2v_lora():
     datapath="data/apply_lipstick/metadata.csv"
 
     result = subprocess.run(
-        [
-            "python",
-            "scripts/train.py",
-            "-t",
-            "--base",
-            config,
-            "--logdir",
-            resroot,
-            "--name",
-            f"{current_time}_{expname}",
-            "--devices",
-            "0,",
-            "lightning.trainer.num_nodes=1",
-            f"data.params.train.params.csv_path={datapath}",
-            f"data.params.validation.params.csv_path={datapath}",
-            "--auto_resume",
-        ]
-        + sys.argv[1:],
-        check=False,
+        ["python", "scripts/train.py", 
+         "-t", 
+         "--base", config, 
+         "--logdir", resroot, 
+         "--name", f"{current_time}_{expname}", 
+         "--devices", "0,", 
+         "lightning.trainer.num_nodes=1", 
+         f"data.params.train.params.csv_path={datapath}", 
+         f"data.params.validation.params.csv_path={datapath}", 
+         "--auto_resume"
+        ] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
 
@@ -866,25 +632,18 @@ def train_cogvideox_t2v_lora():
     resroot = "results/train"  # Experiment saving directory
     expname = "cogvideox_t2v_5b"  # Experiment name
     result = subprocess.run(
-        [
-            "python",
-            "scripts/train.py",
-            "-t",
-            "--base",
-            config,
-            "--logdir",
-            resroot,
-            "--name",
-            f"{current_time}_{expname}",
-            "--devices",
-            "0,",
-            "lightning.trainer.num_nodes=1",
-            f"data.params.train.params.csv_path={datapath}",
-            f"data.params.validation.params.csv_path={datapath}",
-            "--auto_resume",
-        ]
-        + sys.argv[1:],
-        check=False,
+        ["python", "scripts/train.py", 
+         "-t", 
+         "--base", config, 
+         "--logdir", resroot, 
+         "--name", f"{current_time}_{expname}", 
+         "--devices", "0,", 
+         "lightning.trainer.num_nodes=1", 
+         f"data.params.train.params.csv_path={datapath}", 
+         f"data.params.validation.params.csv_path={datapath}", 
+         "--auto_resume"
+        ] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
 
@@ -899,27 +658,18 @@ def train_dynamicrafter():
     config = "configs/002_dynamicrafter/dc_i2v_1024.yaml"  # Experiment config
     resroot = "results/train"  # Experiment saving directory
     result = subprocess.run(
-        [
-            "python",
-            "scripts/train.py",
-            "-t",
-            "--name",
-            f"{current_time}_{expname}",
-            "--base",
-            config,
-            "--logdir",
-            resroot,
-            "--sdckpt",
-            sdckpt,
-            "--ckpt",
-            dcckpt,
-            "--devices",
-            "0,",
-            "lightning.trainer.num_nodes=1",
-            "--auto_resume",
-        ]
-        + sys.argv[1:],
-        check=False,
+        ["python", "scripts/train.py", 
+         "-t", 
+         "--name", f"{current_time}_{expname}", 
+         "--base", config, 
+         "--logdir", resroot, 
+         "--sdckpt", sdckpt, 
+         "--ckpt", dcckpt, 
+         "--devices", "0,", 
+         "lightning.trainer.num_nodes=1", 
+         "--auto_resume"
+        ] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
 
@@ -930,20 +680,15 @@ def train_flux_lora():
     os.environ["DATACONFIG_PATH"] = "configs/006_flux/multidatabackend"
     os.environ["CONFIG_BACKEND"] = "json"
     result = subprocess.run(
-        [
-            "accelerate",
-            "launch",
-            "--mixed_precision=bf16",
-            "--num_processes=1",
-            "--num_machines=1",
-            "scripts/train_flux_lora.py",
-            "--config_path",
-            f"{os.environ['CONFIG_PATH']}.{os.environ['CONFIG_BACKEND']}",
-            "--data_config_path",
-            f"{os.environ['DATACONFIG_PATH']}.{os.environ['CONFIG_BACKEND']}",
-        ]
-        + sys.argv[1:],
-        check=False,
+        ["accelerate", "launch", 
+         "--mixed_precision=bf16", 
+         "--num_processes=1", 
+         "--num_machines=1", 
+         "scripts/train_flux_lora.py", 
+         "--config_path", f"{os.environ['CONFIG_PATH']}.{os.environ['CONFIG_BACKEND']}", 
+         "--data_config_path", f"{os.environ['DATACONFIG_PATH']}.{os.environ['CONFIG_BACKEND']}"
+        ] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
 
@@ -954,23 +699,16 @@ def train_opensorav10():
     config = "configs/003_opensora/opensorav10_256x256.yaml"  # Experiment config
     logdir = "results/train"  # Experiment saving directory
     result = subprocess.run(
-        [
-            "python",
-            "scripts/train.py",
-            "-t",
-            "--devices",
-            "0,",
-            "lightning.trainer.num_nodes=1",
-            "--base",
-            config,
-            "--name",
-            f"{current_time}_{expname}",
-            "--logdir",
-            logdir,
-            "--auto_resume",
-        ]
-        + sys.argv[1:],
-        check=False,
+        ["python", "scripts/train.py", 
+         "-t", 
+         "--devices", "0,", 
+         "lightning.trainer.num_nodes=1", 
+         "--base", config, 
+         "--name", f"{current_time}_{expname}", 
+         "--logdir", logdir, 
+         "--auto_resume"
+        ] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
 
@@ -989,25 +727,17 @@ def train_videocrafter_lora():
 
     # Generate current time
     result = subprocess.run(
-        [
-            "python",
-            "scripts/train.py",
-            "-t",
-            "--name",
-            f"{current_time}_{expname}",
-            "--base",
-            config,
-            "--logdir",
-            resroot,
-            "--ckpt",
-            vc2_ckpt,
-            "--devices",
-            "0,",
-            "lightning.trainer.num_nodes=1",
-            "--auto_resume",
-        ]
-        + sys.argv[1:],
-        check=False,
+        ["python", "scripts/train.py", 
+         "-t", 
+         "--name", f"{current_time}_{expname}", 
+         "--base", config, 
+         "--logdir", resroot, 
+         "--ckpt", vc2_ckpt, 
+         "--devices", "0,", 
+         "lightning.trainer.num_nodes=1", 
+         "--auto_resume"
+        ] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
 
@@ -1024,23 +754,15 @@ def train_videocrafter_v2():
     resroot = "results/train"  # root directory for saving multiple experiments
     expname = "videocrafter2_320x512"  # experiment name
     result = subprocess.run(
-        [
-            "python",
-            "scripts/train_new.py",
-            "-t",
-            "--ckpt",
-            vc2_ckpt,
-            "--base",
-            config,
-            "--logdir",
-            resroot,
-            "--name",
-            f"{current_time}_{expname}",
-            "--devices",
-            "0,",
-            "--auto_resume",
-        ]
-        + sys.argv[1:],
-        check=False,
+        ["python", "scripts/train_new.py", 
+         "-t", 
+         "--ckpt", vc2_ckpt, 
+         "--base", config, 
+         "--logdir", resroot, 
+         "--name", f"{current_time}_{expname}", 
+         "--devices", "0,", 
+         "--auto_resume"
+        ] + sys.argv[1:], 
+        check=False
     )
     exit(result.returncode)
