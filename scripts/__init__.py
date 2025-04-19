@@ -547,7 +547,7 @@ def inference_vc1_t2v_576x1024():
 
 def inference_vc2_t2v_320x512():
     # Dependencies
-    ckpt = "checkpoints/videocrafter/t2v_v2_512_refactor"
+    ckpt = "checkpoints/videocrafter/t2v_v2_512_split"
     config = "configs/001_videocrafter2/vc2_t2v_320x512.yaml"
     prompt_file = "inputs/t2v/prompts.txt"
     result = subprocess.run(
@@ -620,6 +620,35 @@ def train_cogvideox_i2v_lora():
     exit(result.returncode)
 
 
+def train_cogvideox_i2v_fullft():
+    # Set environment variables
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+    # Dependencies
+    config = "configs/004_cogvideox/cogvideo5b-i2v-fullft.yaml"  # Experiment config
+
+    # Experiment settings
+    resroot = "results/train"  # Experiment saving directory
+    expname = "cogvideox_i2v_5b_fullft"  # Experiment name
+    datapath="data/apply_lipstick/metadata.csv"
+
+    result = subprocess.run(
+        ["python", "scripts/train.py", 
+         "-t", 
+         "--base", config, 
+         "--logdir", resroot, 
+         "--name", f"{current_time}_{expname}", 
+         "--devices", "0,1,2,3", 
+         "lightning.trainer.num_nodes=1", 
+         f"data.params.train.params.csv_path={datapath}", 
+         f"data.params.validation.params.csv_path={datapath}", 
+         "--auto_resume"
+        ] + sys.argv[1:], 
+        check=False
+    )
+    exit(result.returncode)
+
+
 def train_cogvideox_t2v_lora():
     # Set environment variables
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -647,6 +676,33 @@ def train_cogvideox_t2v_lora():
     )
     exit(result.returncode)
 
+
+def train_cogvideox_t2v_fullft():
+    # Set environment variables
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+    # Dependencies
+    config = "configs/004_cogvideox/cogvideo5b-t2v-fullft.yaml"  # Experiment config
+    datapath = "data/apply_lipstick/metadata.csv"
+
+    # Experiment settings
+    resroot = "results/train"  # Experiment saving directory
+    expname = "cogvideox_t2v_5b_fullft"  # Experiment name
+    result = subprocess.run(
+        ["python", "scripts/train.py", 
+         "-t", 
+         "--base", config, 
+         "--logdir", resroot, 
+         "--name", f"{current_time}_{expname}", 
+         "--devices", "0,1,2,3", 
+         "lightning.trainer.num_nodes=1", 
+         f"data.params.train.params.csv_path={datapath}", 
+         f"data.params.validation.params.csv_path={datapath}", 
+         "--auto_resume"
+        ] + sys.argv[1:], 
+        check=False
+    )
+    exit(result.returncode)
 
 def train_dynamicrafter():
     # Dependencies
@@ -721,7 +777,7 @@ def train_videocrafter_lora():
     vc2_ckpt = "checkpoints/videocrafter/t2v_v2_512/model.ckpt"
 
     # Experiment settings
-    expname = "train_t2v_512_lora"  # Experiment name
+    expname = "videocrafter2_t2v_lora"  # Experiment name
     config = "configs/001_videocrafter2/vc2_t2v_lora.yaml"  # Experiment config
     resroot = "results/train"  # Experiment saving directory
 
@@ -747,7 +803,7 @@ def train_videocrafter_v2():
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
     # Dependencies
-    vc2_ckpt = "checkpoints/videocrafter/t2v_v2_512_refactor"  # pretrained checkpoint of videocrafter2
+    vc2_ckpt = "checkpoints/videocrafter/t2v_v2_512_split"  # pretrained checkpoint of videocrafter2
     config = "configs/001_videocrafter2/vc2_t2v_320x512.yaml"  # experiment config: model+data+training
 
     # Experiment saving directory and parameters

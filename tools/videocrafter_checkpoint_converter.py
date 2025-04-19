@@ -1,6 +1,6 @@
+import os
 import torch
 from collections import OrderedDict
-
 ckpt = torch.load("checkpoints/videocrafter/t2v_v2_512/model.ckpt")
 state_dict = ckpt['state_dict']
 
@@ -30,9 +30,10 @@ for k, v in state_dict.items():
     else:
         new_ckpt['state_dict'][k] = v
 
-torch.save(new_ckpt, "checkpoints/videocrafter/t2v_v2_512_refactor/model_new.ckpt")
-torch.save(denoiser_ckpt, "checkpoints/videocrafter/t2v_v2_512_refactor/denoiser.ckpt")
-torch.save(first_stage_ckpt, "checkpoints/videocrafter/t2v_v2_512_refactor/first_stage.ckpt")
-torch.save(cond_stage_ckpt, "checkpoints/videocrafter/t2v_v2_512_refactor/cond_stage.ckpt")
+os.makedirs("checkpoints/videocrafter/t2v_v2_512_split", exist_ok=True)
+torch.save(new_ckpt, "checkpoints/videocrafter/t2v_v2_512_split/model_new.ckpt")
+torch.save(denoiser_ckpt, "checkpoints/videocrafter/t2v_v2_512_split/denoiser.ckpt")
+torch.save(first_stage_ckpt, "checkpoints/videocrafter/t2v_v2_512_split/first_stage.ckpt")
+torch.save(cond_stage_ckpt, "checkpoints/videocrafter/t2v_v2_512_split/cond_stage.ckpt")
 
-print('debug')
+print('Finish!')

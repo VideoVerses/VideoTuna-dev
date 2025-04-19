@@ -115,7 +115,7 @@ train:
       image_logger:
         target: videotuna.utils.callbacks.ImageLogger
         params:
-          batch_frequency: 500 #2
+          batch_frequency: 50
           max_images: 6
           to_local: True # save videos into files
           log_images_kwargs:
@@ -130,7 +130,7 @@ train:
           save_on_train_epoch_end: False
           save_last: True
           every_n_epochs: 0
-          every_n_train_steps: 500
+          every_n_train_steps: 100
 
 inference:
   mode: t2v

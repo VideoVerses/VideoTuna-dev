@@ -11,7 +11,7 @@
       "target_downsample_size": 512,
       "resolution_type": "pixel_area",
       "cache_dir_vae": "cache/vae/flux/pseudo-camera-10k/train",
-      "instance_data_dir": "data/images/nezha",
+      "instance_data_dir": "inputs/t2i/flux/plushie_teddybear",
       "caption": "nezha",
       "ignore_epochs": true,
       "disabled": false,

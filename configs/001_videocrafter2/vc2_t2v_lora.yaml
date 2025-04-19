@@ -127,7 +127,7 @@ lightning:
     image_logger:
       target: videotuna.utils.callbacks.ImageLogger
       params:
-        batch_frequency: 1000
+        batch_frequency: 50
         max_images: 2
         to_local: True # save videos into files
         log_images_kwargs:
@@ -143,4 +143,4 @@ lightning:
         filename: "{epoch:06}-{step:09}"
         save_weights_only: False
         # every_n_epochs: 300
-        every_n_train_steps: 10
+        every_n_train_steps: 100

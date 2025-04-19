@@ -1,4 +1,4 @@
-ckpt='checkpoints/videocrafter/t2v_v2_512_refactor/'
+ckpt='checkpoints/videocrafter/t2v_v2_512_split/'
 config='configs/001_videocrafter2/vc2_t2v_320x512.yaml'
 prompt_file="inputs/t2v/prompts.txt"
 
