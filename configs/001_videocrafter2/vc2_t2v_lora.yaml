@@ -93,7 +93,7 @@ model:
         layer: penultimate
 
 data:
-  target: videotuna.data.lightning_data.DataModuleFromConfig
+  target: videotuna.data.lightningdata.DataModuleFromConfig
   params:
     batch_size: 4
     num_workers: 16

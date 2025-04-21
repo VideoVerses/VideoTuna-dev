@@ -111,7 +111,7 @@ model:
         video_length: 16
 
 data:
-  target: videotuna.data.lightning_data.DataModuleFromConfig
+  target: videotuna.data.lightningdata.DataModuleFromConfig
   params:
     batch_size: 2
     num_workers: 16

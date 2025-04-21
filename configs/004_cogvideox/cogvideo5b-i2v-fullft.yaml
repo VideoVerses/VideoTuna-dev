@@ -35,7 +35,7 @@ model:
         subfolder: scheduler
 
 data:
-  target: videotuna.data.lightning_data.DataModuleFromConfig
+  target: videotuna.data.lightningdata.DataModuleFromConfig
   params:
     batch_size: 1
     num_workers: 16

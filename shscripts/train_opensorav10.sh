@@ -2,7 +2,7 @@ export TOKENIZERS_PARALLELISM=false
 
 current_time=$(date +%Y%m%d%H%M%S)
 
-EXPNAME="run_macvid_t2v512"                            # experiment name
+EXPNAME="train_opensora_t2v512"                            # experiment name
 CONFIG='configs/003_opensora/opensorav10_256x256.yaml' # experiment config
 LOGDIR="./results"                                     # experiment saving directory
 
