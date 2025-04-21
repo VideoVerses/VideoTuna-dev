@@ -44,8 +44,8 @@ git clone https://huggingface.co/THUDM/CogVideoX1.5-5B-SAT  # This are checkpoin
 
 # ---- HunyuanVideo (diffusers) ----
 cd VideoTuna   # Make sure you are under the root path of VideoTuna
-mkdir checkpoints/hunyuan
-cd checkpoints/hunyuan
+mkdir checkpoints/hunyuanvideo
+cd checkpoints/hunyuanvideo
 git lfs install
 git clone https://huggingface.co/hunyuanvideo-community/HunyuanVideo
 
@@ -150,10 +150,13 @@ VideoTuna/
         │   │   └── text_encoder_2
         │   │   └── text_encoder_i2v
         │   └── HunyuanVideo/
-        │       └── hunyuan-video-t2v-720p/
-        │       └── llava-llama-3-8b-v1_1-transformers/
-        │       └── text_encoder
-        │       └── text_encoder_2
+        │       └── scheduler/
+        │       └── text_encoder/
+        │       └── text_encoder_2/
+        │       └── tokenizer/
+        │       └── tokenizer_2/
+        │       └── transformer/
+        │       └── vae/
         ├── dynamicrafter/
         │   └── i2v_576x1024/
         │       └── model.ckpt

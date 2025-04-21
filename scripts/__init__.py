@@ -331,7 +331,7 @@ def inference_flux_lora():
 def inference_hunyuan_t2v():
     result = subprocess.run(
         ["python", "scripts/inference_cogvideo.py", 
-         "--ckpt_path", "checkpoints-hunyuan", 
+         "--ckpt_path", "checkpoints/hunyuanvideo/HunyuanVideo", 
          "--config", "configs/007_hunyuanvideo/hunyuanvideo_t2v_diffuser.yaml", 
          "--prompt_file", "inputs/t2v/hunyuanvideo/tyler_swift_video/labels.txt", 
          "--savedir", f"results/t2v/hunyuanvideo-{current_time}", 
