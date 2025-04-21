@@ -16,7 +16,6 @@ from tqdm import tqdm, trange
 sys.path.insert(0, os.getcwd())
 sys.path.insert(1, f"{os.getcwd()}/src")
 
-from videotuna.scheduler import DDIMSampler
 from videotuna.utils.args_utils import prepare_inference_args
 from videotuna.utils.common_utils import instantiate_from_config
 from videotuna.flow.generation_base import GenerationFlow
