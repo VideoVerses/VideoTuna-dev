@@ -1561,7 +1561,6 @@ class DPODataCollator(DPODataCollatorWithPadding):
             the sum of the length of the prompt and the chosen/rejected response, with
             label_pad_token_id  for the prompt tokens.
         """
-        # import pdb; pdb.set_trace()
         batch = {}
 
         chosen_sources = make_conv(prompt, chosen)
@@ -1608,7 +1607,6 @@ class DPODataCollator(DPODataCollatorWithPadding):
 
         # return collated batch
         padded_batch = self.collate(tokenized_batch)
-        # import pdb;pdb.set_trace()
         if "image" in features[0]:
             # instances[1]['image'][0][0].shape
             # torch.Size([5, 3, 224, 224])
@@ -1619,7 +1617,6 @@ class DPODataCollator(DPODataCollatorWithPadding):
             ]
             padded_batch["modalities"] = [im[2] for im_list in images for im in im_list]
             images = [im[0] for im_list in images for im in im_list]
-            # import pdb;pdb.set_trace()
 
             padded_batch["images"] = images
             # padded_batch["images"] =[padded_batch["modalities"], images]

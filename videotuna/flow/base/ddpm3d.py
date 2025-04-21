@@ -816,7 +816,6 @@ class LVDMFlow(DDPMFlow):
 
         if torch.isnan(loss_simple).any():
             print(f"loss_simple exists nan: {loss_simple}")
-            # import pdb; pdb.set_trace()
             for i in range(loss_simple.shape[0]):
                 if torch.isnan(loss_simple[i]).any():
                     loss_simple[i] = torch.zeros_like(loss_simple[i])

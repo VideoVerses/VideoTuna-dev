@@ -274,9 +274,8 @@ class STDiT3(nn.Module):
         t = self.t_embedder(timestep, dtype=x.dtype)  # [B, C]
         t0 = self.t_block(t)  # [B, C]
         y = self.y_embedder(y, self.training)  # [B, 1, N_token, C]
-        import pdb
-
-        pdb.set_trace()
+        import pdb; pdb.set_trace()
+        
         if mask is not None:
             if mask.shape[0] != y.shape[0]:
                 mask = mask.repeat(y.shape[0] // mask.shape[0], 1)

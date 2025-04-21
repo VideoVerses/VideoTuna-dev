@@ -569,7 +569,6 @@ class LlavaMetaForCausalLM(ABC):
 
             cur_new_input_embeds = [x.to(self.device) for x in cur_new_input_embeds]
 
-            # import pdb; pdb.set_trace()
             cur_new_input_embeds = torch.cat(cur_new_input_embeds)
             cur_new_labels = torch.cat(cur_new_labels)
 
@@ -687,7 +686,6 @@ class LlavaMetaForCausalLM(ABC):
             right_add = random.randint(left_add, self.config.pos_skipping_range)
             position_ids[:, :split_position] += left_add
             position_ids[:, split_position:] += right_add
-        # import pdb; pdb.set_trace()
         # rank0_print("Finish preparing")
         return (
             None,

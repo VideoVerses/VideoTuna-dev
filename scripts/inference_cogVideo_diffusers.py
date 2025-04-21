@@ -164,7 +164,6 @@ def generate_video(
     for i, (prompt, image_or_video_path) in enumerate(
         zip(prompts, image_or_video_paths)
     ):
-        # import pdb; pdb.set_trace()
         output_path_ = (
             os.path.join(output_path, f"{i:03d}-{prompt}.mp4")
             if os.path.isdir(output_path)

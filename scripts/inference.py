@@ -1,16 +1,14 @@
-import argparse
-import json
 import os
 import sys
 import time
-from functools import partial
+import json
+import argparse
 
-import numpy as np
+
 import torch
-from einops import rearrange, repeat
+from tqdm import trange
 from omegaconf import OmegaConf
 from pytorch_lightning import seed_everything
-from tqdm import tqdm, trange
 
 sys.path.insert(0, os.getcwd())
 sys.path.insert(1, f"{os.getcwd()}/src")
@@ -18,7 +16,6 @@ from videotuna.flow.base.ddim import DDIMSampler
 from videotuna.flow.base.ddim_multiplecond import DDIMSampler as DDIMSampler_multicond
 from videotuna.utils.common_utils import instantiate_from_config
 from videotuna.utils.inference_utils import (
-    load_image_batch,
     load_inputs_i2v,
     load_model_checkpoint,
     load_prompts_from_txt,
@@ -259,7 +256,7 @@ def run_inference(args, gpu_num=1, rank=0, **kwargs):
     )
 
     # -----------------------------------------------------------------
-    # inference
+    # inference iters
     format_file = {}
     start = time.time()
     n_iters = len(prompt_list_rank) // args.bs + (
@@ -267,7 +264,6 @@ def run_inference(args, gpu_num=1, rank=0, **kwargs):
     )
     with torch.no_grad():
         for idx in trange(0, n_iters, desc="Sample Iters"):
-            # print(f'[rank:{rank}] batch {idx}: prompt bs {args.bs}) x nsamples_per_prompt {args.n_samples_prompt} ...')
 
             prompts = prompt_list_rank[idx * args.bs : (idx + 1) * args.bs]
             filenames = filename_list_rank[idx * args.bs : (idx + 1) * args.bs]
@@ -278,30 +274,8 @@ def run_inference(args, gpu_num=1, rank=0, **kwargs):
                     images = torch.stack(images, dim=0).to("cuda")
                 else:
                     images = images.unsqueeze(0).to("cuda")
-            # idx_s = idx*args.bs
-            # idx_e = min(idx_s+args.bs, len(prompt_list_rank))
-            # batch_size = idx_e - idx_s
-            # filenames = filename_list_rank[idx_s:idx_e]
 
-            # prompts = prompt_list_rank[idx_s:idx_e]
-            # if isinstance(prompts, str):
-            #     prompts = [prompts]
-            # prompts = batch_size * [""]
-
-            # if args.mode == 't2v':
-            #     cond = {"c_crossattn": [text_emb], "fps": fps}
-
-            # TODO
-            # elif args.mode == 'i2v':
-            #     cond_images = load_image_batch(image_list_rank[idx_s:idx_e], (args.height, args.width))
-            #     cond_images = cond_images.to(model.device)
-            #     img_emb = model.get_image_embeds(cond_images)
-            #     imtext_cond = torch.cat([text_emb, img_emb], dim=1)
-            #     cond = {"c_crossattn": [imtext_cond], "fps": fps}
-            # else:
-            #     raise NotImplementedError
-
-            ## inference
+            # inference batch
             bs = args.bs if args.bs == len(prompts) else len(prompts)
             noise_shape = [bs, channels, frames, h, w]
             if args.mode == "t2v":

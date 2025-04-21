@@ -102,7 +102,6 @@ class VideocrafterFlow(GenerationFlow):
             scheduler_config,
             lr_scheduler_config,
         )
-        # self.inference_scheduler = DDIMSampler(self)
         # DDPMFlow related
         assert parameterization in ["eps", "x0", "v"], 'currently only supporting "eps" and "x0" and "v"'
         self.parameterization = parameterization
@@ -115,7 +114,7 @@ class VideocrafterFlow(GenerationFlow):
         self.first_stage_key = first_stage_key
         self.channels = channels
         self.temporal_length = denoiser_config['params'].get('temporal_length', 16)
-        self.image_size = image_size  # try conv?
+        self.image_size = image_size
         if isinstance(self.image_size, int):
             self.image_size = [self.image_size, self.image_size]
         self.use_positional_encodings = use_positional_encodings
@@ -185,14 +184,12 @@ class VideocrafterFlow(GenerationFlow):
         assert(uncond_type in ["zero_embed", "empty_seq"])
         self.uncond_type = uncond_type
 
-        ## future frame prediction
+        # future frame prediction
         self.frame_cond = frame_cond
         if self.frame_cond:
-            # frame_len = self.model.diffusion_model.temporal_length
             frame_len = self.temporal_length
             cond_mask = torch.zeros(frame_len, dtype=torch.float32)
             cond_mask[:self.frame_cond] = 1.0
-            ## b,c,t,h,w
             self.cond_mask = cond_mask[None,None,:,None,None]
             mainlogger.info("---training for %d-frame conditoning T2V"%(self.frame_cond))
         else:
@@ -449,7 +446,6 @@ class VideocrafterFlow(GenerationFlow):
 
         if torch.isnan(loss_simple).any():
             print(f"loss_simple exists nan: {loss_simple}")
-            # import pdb; pdb.set_trace()
             for i in range(loss_simple.shape[0]):
                 if torch.isnan(loss_simple[i]).any():
                     loss_simple[i] = torch.zeros_like(loss_simple[i])

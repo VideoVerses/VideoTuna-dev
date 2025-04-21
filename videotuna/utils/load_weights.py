@@ -277,7 +277,6 @@ def load_partial_weights(
         model2.load_state_dict(model_dict)
         empty_paras += skipped
         mainlogger.info(f"Empty parameters: {len(empty_paras)} ")
-        # import pdb;pdb.set_trace()
 
     mainlogger.info(f"-------------- Finish! --------------------------")
     return model2, empty_paras
@@ -293,9 +292,6 @@ def load_autoencoder(model, config_path=None, ckpt_path=None, device=None):
 
     pretrained_ldm = init_and_load_ldm_model(config_path, ckpt_path, device)
     autoencoder_dict = {}
-    # import pdb;pdb.set_trace()
-    # mainlogger.info([n for n in pretrained_ldm.state_dict().keys()])
-    # mainlogger.info([n for n in model.state_dict().keys()])
     for n, p in pretrained_ldm.state_dict().items():
         if n.startswith("first_stage_model"):
             autoencoder_dict[n] = p
@@ -460,9 +456,7 @@ def change_sd_weight(
             k = k.replace("output_blocks.8.2.conv", "output_blocks.8.3.conv")
 
         if k not in model_sd:
-            import pdb
-
-            pdb.set_trace()
+            import pdb; pdb.set_trace()
 
         # merge new token
         if (
@@ -533,7 +527,6 @@ def load_model_checkpoint_t2v(
             new_pl_sd[key[16:]] = pl_sd[key]
         pl_sd = new_pl_sd
 
-    # merge_new_token
     if merge_new_token:
         if lora_path is not None:
             lora_sd = torch.load(lora_path, map_location="cpu")
@@ -552,9 +545,8 @@ def load_model_checkpoint_t2v(
             sd_sd = load_sd_state_dict(sd_ckpt)
             token_emb = sd_sd["cond_stage_model.model.token_embedding.weight"][49408:]
         else:
-            import pdb
-
-            pdb.set_trace()
+            import pdb; pdb.set_trace()
+        
         if token_emb is not None:
             pl_sd["cond_stage_model.model.token_embedding.weight"] = torch.cat(
                 [pl_sd["cond_stage_model.model.token_embedding.weight"], token_emb],

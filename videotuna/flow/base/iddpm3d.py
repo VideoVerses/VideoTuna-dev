@@ -982,7 +982,6 @@ class LatentDiffusion(SpacedDiffusion):
         **kwargs,
     ):
         self.scale_by_std = scale_by_std
-        # for backwards compatibility after implementation of DiffusionWrapper
         ckpt_path = kwargs.pop("ckpt_path", None)
         ignore_keys = kwargs.pop("ignore_keys", [])
         conditioning_key = default(conditioning_key, "crossattn")

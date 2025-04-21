@@ -252,10 +252,7 @@ class HunyuanVideoWorkFlow(pl.LightningModule):
         )
 
         self.model = instantiate_from_config(denoiser_config)
-        # self.model = DiffusionWrapper(unet_config, conditioning_key)
         self.scheduler = instantiate_from_config(scheduler_config)
-        # print('self.device:', self.device)
-        # exit()
         self.scheduler_sigmas = self.scheduler.sigmas.clone().to(self.device)
         # add adapter config (Support Lora and HRA )
         self.lora_args = []
@@ -894,10 +891,6 @@ class HunyuanVideoWorkFlow(pl.LightningModule):
         # model_input = batch["videos"].permute(0, 2, 1, 3, 4).to(dtype=self.vae.dtype)  # [B, F, C, H, W]
         model_input = batch["videos"].to(dtype=self.vae.dtype)
         prompts = batch["prompts"]
-        # print(f"model_input.dtype: {model_input.dtype}")
-        # print(f"self.vae.dtype: {self.vae.dtype}")
-        # import pdb
-        # pdb.set_trace()
         
         max_sequence_length = 256 # TODO: check this value
         with torch.no_grad():

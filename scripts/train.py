@@ -15,7 +15,6 @@ import pytorch_lightning as pl
 from pytorch_lightning import seed_everything, Trainer
 from pytorch_lightning.cli import LightningCLI
 
-# sys.path.insert(1, os.path.join(sys.path[0], '..'))
 sys.path.insert(0, os.getcwd())
 from videotuna.utils.common_utils import instantiate_from_config
 from videotuna.utils.lightning_utils import add_trainer_args_to_parser
