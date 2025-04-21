@@ -20,7 +20,7 @@ model:
     fix_scale_bug: true
 
     diffusion_scheduler_config:
-      target: videotuna.scheduler.diffusion_schedulers.LDMScheduler
+      target: videotuna.schedulers.diffusion_schedulers.LDMScheduler
       params:
         timesteps: 1000
         linear_start: 0.00085

@@ -19,9 +19,9 @@ from pytorch_lightning.utilities import rank_zero_only
 from torch.optim.lr_scheduler import CosineAnnealingLR, LambdaLR
 from torchvision.utils import make_grid
 
-from videotuna.scheduler.ddim import DDIMSampler
+from videotuna.schedulers.ddim import DDIMSampler
 from videotuna.models.lvdm.ddpm3d import DDPMFlow
-from videotuna.scheduler.diffusion_schedulers import DDPMScheduler
+from videotuna.schedulers.diffusion_schedulers import DDPMScheduler
 from videotuna.utils.distributions import DiagonalGaussianDistribution, normal_kl
 from videotuna.utils.diffusion_utils import (
     discretized_gaussian_log_likelihood,

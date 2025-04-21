@@ -12,8 +12,8 @@ from pytorch_lightning import seed_everything
 
 sys.path.insert(0, os.getcwd())
 sys.path.insert(1, f"{os.getcwd()}/src")
-from videotuna.scheduler.ddim import DDIMSampler
-from videotuna.scheduler.ddim_multiplecond import DDIMSampler as DDIMSampler_multicond
+from videotuna.schedulers.ddim import DDIMSampler
+from videotuna.schedulers.ddim_multiplecond import DDIMSampler as DDIMSampler_multicond
 from videotuna.utils.common_utils import instantiate_from_config
 from videotuna.utils.inference_utils import (
     load_inputs_i2v,
