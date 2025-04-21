@@ -14,7 +14,7 @@
 
 
 ## 🔆 Features
-![videotuna-pipeline-fig2](https://github.com/user-attachments/assets/5dbe746c-0fd2-4740-84a9-e0d8987cac72)  
+![videotuna-pipeline-fig3](https://github.com/user-attachments/assets/625693d9-b5cf-4c00-8e84-20ea855c2445)
 🌟 **All-in-one framework:** Inference and fine-tune various up-to-date pre-trained video generation models.  
 🌟 **Continuous training:** Keep improving your model with new data.  
 🌟 **Fine-tuning:** Adapt pre-trained models to specific domains.  
