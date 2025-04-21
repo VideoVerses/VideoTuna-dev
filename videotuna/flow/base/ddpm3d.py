@@ -480,7 +480,6 @@ class LVDMFlow(DDPMFlow):
         **kwargs,
     ):
         self.scale_by_std = scale_by_std
-        # for backwards compatibility after implementation of DiffusionWrapper
         ckpt_path = kwargs.pop("ckpt_path", None)
         ignore_keys = kwargs.pop("ignore_keys", [])
         conditioning_key = default(conditioning_key, "crossattn")
@@ -492,8 +491,6 @@ class LVDMFlow(DDPMFlow):
             *args,
             **kwargs,
         )
-
-        # self.diffusion_scheduler = instantiate_from_config(diffusion_scheduler_config)
 
         self.cond_stage_trainable = cond_stage_trainable
         self.cond_stage_key = cond_stage_key
@@ -1617,13 +1614,17 @@ class LatentVisualDiffusionFlow(LVDMFlow):
 
         return optimizer
 
-
 class DiffusionWrapper(pl.LightningModule):
     def __init__(self, diff_model_config, conditioning_key):
         super().__init__()
-        # print('diff model config: ', diff_model_config)
-        # self.precision = diff_model_config.pop('precision', None)
-        self.diffusion_model = instantiate_from_config(diff_model_config)
+        
+        if isinstance(diff_model_config, dict):
+            self.diffusion_model = instantiate_from_config(diff_model_config)
+        elif isinstance(diff_model_config, nn.Module):
+            self.diffusion_model = diff_model_config
+        else:
+            raise ValueError("diff_model_config should be a dict or a nn.Module")
+        
         self.conditioning_key = conditioning_key
 
     def forward(
@@ -1638,7 +1639,6 @@ class DiffusionWrapper(pl.LightningModule):
         s=None,
         **kwargs,
     ):
-        # temporal_context = fps is foNone
         if self.conditioning_key is None:
             out = self.diffusion_model(x, t)
         elif self.conditioning_key == "concat":

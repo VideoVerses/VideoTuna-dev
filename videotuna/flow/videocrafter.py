@@ -19,8 +19,9 @@ from pytorch_lightning.utilities import rank_zero_only
 from torchvision.utils import make_grid
 
 from videotuna.flow.base.ema import LitEma
-from videotuna.scheduler import DDIMSampler
+from videotuna.flow.base.ddpm3d import DiffusionWrapper
 from videotuna.flow.base.distributions import DiagonalGaussianDistribution, normal_kl
+from videotuna.scheduler import DDIMSampler
 from videotuna.flow.generation_base import GenerationFlow
 from videotuna.utils.common_utils import instantiate_from_config, print_green, print_yellow
 from videotuna.models.lvdm.modules.utils import (
@@ -33,95 +34,6 @@ from videotuna.models.lvdm.modules.utils import (
 
 mainlogger = logging.getLogger("mainlogger")
 
-
-class DiffusionWrapper(pl.LightningModule):
-    def __init__(self, diff_model_config, conditioning_key):
-        super().__init__()
-        if isinstance(diff_model_config, dict):
-            self.diffusion_model = instantiate_from_config(diff_model_config)
-        elif isinstance(diff_model_config, nn.Module):
-            self.diffusion_model = diff_model_config
-        else:
-            raise ValueError("diff_model_config should be a dict or a nn.Module")
-
-        self.conditioning_key = conditioning_key
-
-    def forward(self, x, t, c_concat: list = None, c_crossattn: list = None,
-                c_crossattn_stdit: list = None, mask: list = None,
-                c_adm=None, s=None,  **kwargs):
-        # temporal_context = fps is foNone
-        if self.conditioning_key is None:
-            out = self.diffusion_model(x, t)
-        elif self.conditioning_key == 'concat':
-            xc = torch.cat([x] + c_concat, dim=1)
-            out = self.diffusion_model(xc, t, **kwargs)
-        elif self.conditioning_key == 'crossattn':
-            cc = torch.cat(c_crossattn, 1)
-            out = self.diffusion_model(x, t, context=cc, **kwargs)
-        elif self.conditioning_key == 'crossattn_stdit':            
-            cc = torch.cat(c_crossattn_stdit, 1) # [b, 77, 1024] 
-            mask = torch.cat(mask, 1)
-            # TODO fix precision 
-            # if self.precision is not None and self.precision == 'bf16':
-                # print('Convert datatype')
-            cc = cc.to(torch.bfloat16)
-            self.diffusion_model = self.diffusion_model.to(torch.bfloat16)
-            
-            out = self.diffusion_model(x, t, y=cc, mask=mask) 
-            # def forward(self, x, timestep, y, mask=None, x_mask=None, fps=None, height=None, width=None, **kwargs):
-        elif self.conditioning_key == 'hybrid':
-            ## it is just right [b,c,t,h,w]: concatenate in channel dim
-            xc = torch.cat([x] + c_concat, dim=1)
-            cc = torch.cat(c_crossattn, 1)
-            out = self.diffusion_model(xc, t, context=cc, **kwargs)
-        elif self.conditioning_key == 'resblockcond':
-            cc = c_crossattn[0]
-            out = self.diffusion_model(x, t, context=cc)
-        elif self.conditioning_key == 'adm':
-            cc = c_crossattn[0]
-            out = self.diffusion_model(x, t, y=cc)
-        elif self.conditioning_key == 'hybrid-adm':
-            assert c_adm is not None
-            xc = torch.cat([x] + c_concat, dim=1)
-            cc = torch.cat(c_crossattn, 1)
-            out = self.diffusion_model(xc, t, context=cc, y=c_adm, **kwargs)
-        elif self.conditioning_key == 'hybrid-time':
-            assert s is not None
-            xc = torch.cat([x] + c_concat, dim=1)
-            cc = torch.cat(c_crossattn, 1)
-            out = self.diffusion_model(xc, t, context=cc, s=s)
-        elif self.conditioning_key == 'concat-time-mask':
-            # assert s is not None
-            xc = torch.cat([x] + c_concat, dim=1)
-            out = self.diffusion_model(xc, t, context=None, s=s, mask=mask)
-        elif self.conditioning_key == 'concat-adm-mask':
-            # assert s is not None
-            if c_concat is not None:
-                xc = torch.cat([x] + c_concat, dim=1)
-            else:
-                xc = x
-            out = self.diffusion_model(xc, t, context=None, y=s, mask=mask)
-        elif self.conditioning_key == 'hybrid-adm-mask':
-            cc = torch.cat(c_crossattn, 1)
-            if c_concat is not None:
-                xc = torch.cat([x] + c_concat, dim=1)
-            else:
-                xc = x
-            out = self.diffusion_model(xc, t, context=cc, y=s, mask=mask)
-        elif self.conditioning_key == 'hybrid-time-adm': # adm means y, e.g., class index
-            # assert s is not None
-            assert c_adm is not None
-            xc = torch.cat([x] + c_concat, dim=1)
-            cc = torch.cat(c_crossattn, 1)
-            out = self.diffusion_model(xc, t, context=cc, s=s, y=c_adm)
-        elif self.conditioning_key == 'crossattn-adm':
-            assert c_adm is not None
-            cc = torch.cat(c_crossattn, 1)
-            out = self.diffusion_model(x, t, context=cc, y=c_adm)
-        else:
-            raise NotImplementedError()
-
-        return out
 
 
 class VideocrafterFlow(GenerationFlow):
@@ -207,8 +119,6 @@ class VideocrafterFlow(GenerationFlow):
         if isinstance(self.image_size, int):
             self.image_size = [self.image_size, self.image_size]
         self.use_positional_encodings = use_positional_encodings
-        # TODO: remove the DiffusionWrapper
-        # self.model = DiffusionWrapper(denoiser_config, conditioning_key)  # Using DiffusionWrapper to construct the model
         self.model = DiffusionWrapper(self.denoiser, conditioning_key)
 
         self.use_ema = use_ema
@@ -231,7 +141,6 @@ class VideocrafterFlow(GenerationFlow):
 
         # LVDM related
         self.scale_by_std = scale_by_std
-        # for backwards compatibility after implementation of DiffusionWrapper
         ckpt_path = kwargs.pop("ckpt_path", None)
         ignore_keys = kwargs.pop("ignore_keys", [])
         conditioning_key = default(conditioning_key, 'crossattn')
