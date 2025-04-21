@@ -23,14 +23,19 @@
 
 
 ## 🔆 Updates
-- [2025-02-03] 🐟 We update automatic code formatting from [PR#27](https://github.com/VideoVerses/VideoTuna/pull/27). Thanks [samidarko](https://github.com/samidarko)!
-- [2025-02-01] 🐟 We update [Poetry](https://python-poetry.org) migration for better dependency management and script automation from [PR#25](https://github.com/VideoVerses/VideoTuna/pull/25). Thanks [samidarko](https://github.com/samidarko)!
-- [2025-01-20] 🐟 We update the **fine-tuning** of `Flux-T2I`. Thanks VideoTuna team!
-- [2025-01-01] 🐟 We update the **training** of `VideoVAE+` in [this repo](https://github.com/VideoVerses/VideoVAEPlus). Thanks VideoTuna team!
-- [2025-01-01] 🐟 We update the **inference** of `Hunyuan Video` and `Mochi`. Thanks VideoTuna team!
-- [2024-12-24] 🐟 We release a SOTA Video VAE model `VideoVAE+` in [this repo](https://github.com/VideoVerses/VideoVAEPlus)! Better video reconstruction than Nvidia's [`Cosmos-Tokenizer`](https://github.com/NVIDIA/Cosmos-Tokenizer). Thanks VideoTuna team!
-- [2024-12-01] 🐟 We update the **inference** of `CogVideoX-1.5-T2V&I2V`, `Video-to-Video Enhancement` from ModelScope, and **fine-tuning** of `CogVideoX-1`. Thanks VideoTuna team!
-- [2024-11-01] 🐟 We make the VideoTuna V0.1.0 public! It supports inference of `VideoCrafter1-T2V&I2V`, `VideoCrafter2-T2V`, `DynamiCrafter-I2V`, `OpenSora-T2V`, `CogVideoX-1-2B-T2V`, `CogVideoX-1-T2V`, `Flux-T2I`, as well as training and finetuning of part of these models. Thanks VideoTuna team!
+
+- [2025-04-21] 🐟 Supported **inference** for `Wan2.1` and `Step Video`.
+- [2025-04-21] 🐟 Supported **fine-tuning** for `HunyuanVideo`.
+- [2025-02-03] 🐟 Supported automatic code formatting via [PR#27](https://github.com/VideoVerses/VideoTuna/pull/27). Thanks [@samidarko](https://github.com/samidarko)!
+- [2025-02-01] 🐟 Migrated to [Poetry](https://python-poetry.org) for streamlined dependency and script management ([PR#25](https://github.com/VideoVerses/VideoTuna/pull/25)). Thanks [@samidarko](https://github.com/samidarko)!
+- [2025-01-20] 🐟 Supported **fine-tuning** for `Flux-T2I`.
+- [2025-01-01] 🐟 Released **training** for `VideoVAE+` in the [VideoVAEPlus repo](https://github.com/VideoVerses/VideoVAEPlus).
+- [2025-01-01] 🐟 Supported **inference** for `Hunyuan Video` and `Mochi`.
+- [2024-12-24] 🐟 Released `VideoVAE+`: a SOTA Video VAE model—now available in [this repo](https://github.com/VideoVerses/VideoVAEPlus)! Achieves better video reconstruction than NVIDIA’s [`Cosmos-Tokenizer`](https://github.com/NVIDIA/Cosmos-Tokenizer).
+- [2024-12-01] 🐟 Supported **inference** for `CogVideoX-1.5-T2V&I2V` and `Video-to-Video Enhancement` from ModelScope.
+- [2024-12-01] 🐟 Supported **fine-tuning** for `CogVideoX`.
+- [2024-11-01] 🐟 🎉 Released **VideoTuna v0.1.0**!  
+  Initial support includes inference for `VideoCrafter1-T2V&I2V`, `VideoCrafter2-T2V`, `DynamiCrafter-I2V`, `OpenSora-T2V`, `CogVideoX-1-2B-T2V`, `CogVideoX-1-T2V`, `Flux-T2I`, and partial support for training/fine-tuning.
 
 
 ## 🔆 Get started
@@ -161,6 +166,7 @@ poetry run pip install "modelscope[cv]" -f https://modelscope.oss-cn-beijing.ali
 Run the following commands to inference models:
 It will automatically perform T2V/T2I based on prompts in `inputs/t2v/prompts.txt`, 
 and I2V based on images and prompts in `inputs/i2v/576x1024`.
+**T2V**
 Task|Model|Command|Length (#Frames)|Resolution|Inference Time|GPU Memory (GB)|
 |:---------|:---------|:---------|:---------|:---------|:---------|:---------|
 |T2V|HunyuanVideo|`poetry run inference-hunyuan-t2v`|129|720x1280|32min|60|
@@ -172,11 +178,28 @@ Task|Model|Command|Length (#Frames)|Resolution|Inference Time|GPU Memory (GB)|
 |T2V|Open Sora V1.0|`poetry run inference-opensora-v10-16x256x256`|16|256x256|11s|24|
 |T2V|VideoCrafter-V2-320x512|`poetry run inference-vc2-t2v-320x512`|16|320x512|26s|11|
 |T2V|VideoCrafter-V1-576x1024|`poetry run inference-vc1-t2v-576x1024`|16|576x1024|2min|15|
+
+---
+
+
+**I2V**
+
+
+Task|Model|Command|Length (#Frames)|Resolution|Inference Time|GPU Memory (GB)|
+|:---------|:---------|:---------|:---------|:---------|:---------|:---------|
 |I2V|WanVideo|`poetry run inference-wanvideo-i2v-720p `|81|720x1280|28min|77|
 |I2V|HunyuanVideo|`poetry run inference-hunyuan-i2v-720p`|129|720x1280|29min|43|
 |I2V|CogVideoX-5b-I2V|`poetry run inference-cogvideox-15-5b-i2v`|49|480x720|5min|5|
 |I2V|DynamiCrafter|`poetry run inference-dc-i2v-576x1024`|16|576x1024|2min|53|
 |I2V|VideoCrafter-V1|`poetry run inference-vc1-i2v-320x512`|16|320x512|26s|11|
+
+
+---
+
+**T2I**
+
+Task|Model|Command|Length (#Frames)|Resolution|Inference Time|GPU Memory (GB)|
+|:---------|:---------|:---------|:---------|:---------|:---------|:---------|
 |T2I|Flux-dev|`poetry run inference-flux-dev`|1|768x1360|4min|2|
 |T2I|Flux-schnell|`poetry run inference-flux-schnell`|1|768x1360|5s|2|
 
@@ -245,6 +268,10 @@ poetry run pre-commit run --all-files
 
 ## Acknowledgement
 We thank the following repos for sharing their awesome models and codes!
+
+* [Wan2.1](https://github.com/Wan-Video/Wan2.1): Wan: Open and Advanced Large-Scale Video Generative Models.
+* [HunyuanVideo](https://github.com/Tencent/HunyuanVideo): A Systematic Framework For Large Video Generation Model.
+* [Step-Video](https://github.com/stepfun-ai/Step-Video-T2V): A text-to-video pre-trained model with 30 billion parameters and the capability to generate videos up to 204 frames.
 * [Mochi](https://www.genmo.ai/blog): A new SOTA in open-source video generation models
 * [VideoCrafter2](https://github.com/AILab-CVC/VideoCrafter): Overcoming Data Limitations for High-Quality Video Diffusion Models
 * [VideoCrafter1](https://github.com/AILab-CVC/VideoCrafter): Open Diffusion Models for High-Quality Video Generation
