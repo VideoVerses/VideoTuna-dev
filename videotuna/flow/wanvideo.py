@@ -10,7 +10,7 @@ from datetime import datetime
 import sys
 from omegaconf import OmegaConf, DictConfig
 
-from videotuna.base.generation_base import GenerationFlow
+from videotuna.base.generation_base import GenerationBase
 from videotuna.utils.common_utils import instantiate_from_config
 from videotuna.utils.args_utils import VideoMode
 import videotuna.models.wan.wan as wan

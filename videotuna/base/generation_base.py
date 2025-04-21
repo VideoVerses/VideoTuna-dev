@@ -15,7 +15,7 @@ from videotuna.utils.common_utils import instantiate_from_config, print_green, p
 
 
 
-class GenerationFlow(TrainBase, InferenceBase):
+class GenerationBase(TrainBase, InferenceBase):
     """
     The GenerationFlow class is a generative model class that inherits from both TrainBase and InferenceBase.
     It manages the instantiation of different stages of a generative process, including a denoiser and a scheduler.
