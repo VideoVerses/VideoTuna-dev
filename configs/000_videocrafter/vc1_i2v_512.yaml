@@ -1,5 +1,5 @@
 model:
-  target: videotuna.flow.base.ddpm3d.LatentVisualDiffusionFlow
+  target: videotuna.models.lvdm.ddpm3d.LatentVisualDiffusionFlow
   params:
     linear_start: 0.00085
     linear_end: 0.012

@@ -2,7 +2,7 @@ model:
   base_learning_rate: 6.0e-06 # 1.5e-04
   scale_lr: False
   # empty_params_only: True # If enabled, only the newly added temporal parameters are fine-tuned. If disabled, all spatial-temporal parameters will be fine-tuned.
-  target: videotuna.flow.base.ddpm3d.LVDMFlow
+  target: videotuna.models.lvdm.ddpm3d.LVDMFlow
   params:
     lora_args:
       # lora_ckpt: "/path/to/lora.ckpt" # no need for the first-time training, only used for resume training.

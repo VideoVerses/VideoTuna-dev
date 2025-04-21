@@ -1,5 +1,5 @@
 model:
-  target: videotuna.flow.base.ddpm3d.LVDMFlow
+  target: videotuna.models.lvdm.ddpm3d.LVDMFlow
   params:
     linear_start: 0.00085
     linear_end: 0.012

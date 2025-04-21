@@ -1,7 +1,7 @@
 model:
   base_learning_rate: 1.0e-05
   scale_lr: False
-  target: videotuna.flow.base.ddpm3d.LatentVisualDiffusionFlow
+  target: videotuna.models.lvdm.ddpm3d.LatentVisualDiffusionFlow
   params:
     parameterization: v
     log_every_t: 200
