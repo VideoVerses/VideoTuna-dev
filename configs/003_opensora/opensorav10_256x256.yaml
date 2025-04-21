@@ -41,7 +41,7 @@ model:
         - 32
         - 32
     first_stage_config:
-      target: videotuna.models.lvdm.opensoravae.VideoAutoencoderKL
+      target: videotuna.models.opensora.models.vae.opensoravae
       params:
           from_pretrained: stabilityai/sd-vae-ft-ema
           micro_batch_size: 4

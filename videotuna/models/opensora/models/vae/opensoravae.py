@@ -1,11 +1,11 @@
 import os
+from einops import rearrange
 from typing import Optional, Union
 
-import pytorch_lightning as pl
 import torch
-from diffusers.models import AutoencoderKL
-from einops import rearrange
+import pytorch_lightning as pl
 
+from diffusers.models import AutoencoderKL
 
 
 class VideoAutoencoderKL(pl.LightningModule):
