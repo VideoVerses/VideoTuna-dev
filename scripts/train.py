@@ -218,29 +218,7 @@ if __name__ == "__main__":
     strategy_cfg = get_trainer_strategy(lightning_config)
     print('strategy cfg: ', strategy_cfg)
     trainer_kwargs["strategy"] = strategy_cfg if type(strategy_cfg) == str else instantiate_from_config(strategy_cfg)
-    # trainer_kwargs["strategy"] = pl.strategies.DeepSpeedStrategy(
-    #     stage=3,
-    #     config={
-    #         # Use bf16 to prevent loss scale problem. Please refer to https://github.com/hiyouga/LLaMA-Factory/issues/251 for more details.
-    #         "bf16": {
-    #             "enabled": "auto"
-    #         },
-    #         "zero_optimization": {
-    #             "stage": 3,
-    #             "offload_optimizer": {"device": "cpu", "pin_memory": True},
-    #             "overlap_comm": True,
-    #             "contiguous_gradients": True,
-    #         },
-    #         "fp16": {
-    #             "enabled": False,
-    #             "loss_scale": 0,
-    #             "loss_scale_window": 1000,
-    #             "hysteresis": 2,
-    #             "min_loss_scale": 1
-    #         },
-            
-    #     }
-    # )
+
     trainer_kwargs["sync_batchnorm"] = False
 
     ## trainer config: others
