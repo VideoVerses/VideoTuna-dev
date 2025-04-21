@@ -20,7 +20,7 @@ from torchvision.utils import make_grid
 
 from videotuna.flow.base.ema import LitEma
 from videotuna.flow.base.ddpm3d import DiffusionWrapper
-from videotuna.flow.base.distributions import DiagonalGaussianDistribution, normal_kl
+from videotuna.utils.distributions import DiagonalGaussianDistribution
 from videotuna.scheduler import DDIMSampler
 from videotuna.flow.generation_base import GenerationFlow
 from videotuna.utils.common_utils import instantiate_from_config, print_green, print_yellow

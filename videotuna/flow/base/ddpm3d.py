@@ -27,7 +27,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR, LambdaLR
 from torchvision.utils import make_grid
 
 from videotuna.flow.base.ddim import DDIMSampler
-from videotuna.flow.base.distributions import DiagonalGaussianDistribution, normal_kl
+from videotuna.utils.distributions import DiagonalGaussianDistribution
 from videotuna.flow.base.ema import LitEma
 from videotuna.flow.base.utils_diffusion import make_beta_schedule, rescale_zero_terminal_snr
 

@@ -2,25 +2,6 @@ import numpy as np
 import torch
 
 
-class AbstractDistribution:
-    def sample(self):
-        raise NotImplementedError()
-
-    def mode(self):
-        raise NotImplementedError()
-
-
-class DiracDistribution(AbstractDistribution):
-    def __init__(self, value):
-        self.value = value
-
-    def sample(self):
-        return self.value
-
-    def mode(self):
-        return self.value
-
-
 class DiagonalGaussianDistribution(object):
     def __init__(self, parameters, deterministic=False):
         self.parameters = parameters
@@ -75,10 +56,9 @@ class DiagonalGaussianDistribution(object):
 
 def normal_kl(mean1, logvar1, mean2, logvar2):
     """
-    source: https://github.com/openai/guided-diffusion/blob/27c20a8fab9cb472df5d6bdd6c8d11c8f430b924/guided_diffusion/losses.py#L12
     Compute the KL divergence between two gaussians.
-    Shapes are automatically broadcasted, so batches can be compared to
-    scalars, among other use cases.
+    Shapes are automatically broadcasted, so batches can be compared to scalars, among other use cases.
+    Source: https://github.com/openai/guided-diffusion/blob/27c20a8fab9cb472df5d6bdd6c8d11c8f430b924/guided_diffusion/losses.py#L12
     """
     tensor = None
     for obj in (mean1, logvar1, mean2, logvar2):

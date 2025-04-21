@@ -11,9 +11,6 @@ from videotuna.flow.base.utils_diffusion import (
     make_ddim_timesteps,
 )
 
-# import ipdb
-# st = ipdb.set_trace
-
 
 class DDIMSampler(object):
     def __init__(self, model, schedule="linear", **kwargs):
@@ -53,7 +50,6 @@ class DDIMSampler(object):
             to_torch(self.model.diffusion_scheduler.alphas_cumprod_prev),
         )
         self.use_scale = self.model.use_scale
-        # print('DDIM scale', self.use_scale)
 
         if self.use_scale:
             self.register_buffer("scale_arr", to_torch(self.model.scale_arr))
