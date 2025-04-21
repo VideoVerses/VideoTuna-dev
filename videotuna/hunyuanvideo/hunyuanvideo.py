@@ -155,7 +155,6 @@ def prepare_sigmas(
     else:
         raise ValueError(f"Unsupported scheduler type {type(scheduler)}")
 
-    # print('device:', sigmas.device, 'indices:', indices.device)
     return sigmas[indices]
 
 
@@ -215,7 +214,6 @@ class HunyuanVideoWorkFlow(pl.LightningModule):
         # condtion stage use T5 class, which is availale at lvdm.module.encoders.condtion.FrozenT5Embedder
         # but we need to be aware of the model name and tokenizer name
         # here is the same with DDPM
-        # print(first_stage_config)
         self.instantiate_first_stage(first_stage_config)
         # max_sequence_length=226
         self.instantiate_cond_stage(cond_stage_config)
@@ -255,8 +253,6 @@ class HunyuanVideoWorkFlow(pl.LightningModule):
         self.model = instantiate_from_config(denoiser_config)
         # self.model = DiffusionWrapper(unet_config, conditioning_key)
         self.scheduler = instantiate_from_config(scheduler_config)
-        # print('self.device:', self.device)
-        # exit()
         self.scheduler_sigmas = self.scheduler.sigmas.clone().to(self.device)
         # add adapter config (Support Lora and HRA )
         self.lora_args = []
@@ -269,9 +265,7 @@ class HunyuanVideoWorkFlow(pl.LightningModule):
     def inject_adapter(self, adapter_config):
         self.model.requires_grad_(False)
         self.model.enable_gradient_checkpointing()
-        # print("Injecting lora adapter")
         transformer_adapter_config = instantiate_from_config(adapter_config)   
-        # print(transformer_adapter_config)
         self.model = get_peft_model(self.model, transformer_adapter_config)
         self.model.print_trainable_parameters()
     
@@ -862,12 +856,9 @@ class HunyuanVideoWorkFlow(pl.LightningModule):
         pass
     
     def encode_video(self,video):
-        # print(f"video shape in encode_video: {video.shape}") # [61, 3, 544, 960]
         video = video.to(self.device, dtype=self.vae.dtype).unsqueeze(0) # [1, 61, 3, 544, 960]
         # video = video.to(self.device, dtype=self.vae.dtype).unsqueeze(0) # [1, 61, 3, 544, 960]
         video = video.permute(0, 2, 1, 3, 4)  # [B, C, F, H, W], [1, 3, 61, 544, 960]
-        print(self.vae.dtype)
-        print(self.dtype)
         
         latent_dist = self.vae.encode(video).latent_dist
         return latent_dist
@@ -895,10 +886,6 @@ class HunyuanVideoWorkFlow(pl.LightningModule):
         # model_input = batch["videos"].permute(0, 2, 1, 3, 4).to(dtype=self.vae.dtype)  # [B, F, C, H, W]
         model_input = batch["videos"].to(dtype=self.vae.dtype)
         prompts = batch["prompts"]
-        # print(f"model_input.dtype: {model_input.dtype}")
-        # print(f"self.vae.dtype: {self.vae.dtype}")
-        # import pdb
-        # pdb.set_trace()
         
         max_sequence_length = 256 # TODO: check this value
         with torch.no_grad():
@@ -913,9 +900,6 @@ class HunyuanVideoWorkFlow(pl.LightningModule):
                 device=self.device,
                 max_sequence_length=max_sequence_length,
             )
-        # print(f"prompt_embeds.dtype: {prompt_embeds.dtype}")
-        # print(f"pooled_prompt_embeds.dtype: {pooled_prompt_embeds.dtype}")
-        # print(f"prompt_attention_mask.dtype: {prompt_attention_mask.dtype}")
 
         batch_size, num_frames, num_channels, height, width = model_input.shape
 
@@ -949,7 +933,6 @@ class HunyuanVideoWorkFlow(pl.LightningModule):
 
         noisy_latents = (1.0 - sigmas) * model_input + sigmas * noise
         noisy_latents = noisy_latents.to(model_input.dtype)
-        # print(f"noisy_latents.dtype: {noisy_latents.dtype}")
         weights = prepare_loss_weights(
             scheduler=self.scheduler,
             alphas=None, # None for flow matching
@@ -967,10 +950,6 @@ class HunyuanVideoWorkFlow(pl.LightningModule):
         # )
         guidance_scale = 1.0
         guidance = torch.tensor([guidance_scale] * noisy_latents.shape[0], dtype=noisy_latents.dtype, device=noisy_latents.device) * 1000.0
-        # print(f"noisy_latents.dtype: {noisy_latents.dtype}")
-        # print(f"timesteps.dtype: {timesteps.dtype}")
-        # print(f"prompt_embeds.dtype: {prompt_embeds.dtype}")
-        # print(f"pooled_prompt_embeds.dtype: {pooled_prompt_embeds.dtype}")
         
         model_output = self.model(
                     hidden_states=noisy_latents,
@@ -982,11 +961,9 @@ class HunyuanVideoWorkFlow(pl.LightningModule):
                     # attention_kwargs=attention_kwargs,
                     return_dict=False,
                 )[0]
-        # print(f"model_output.dtype: {model_output.dtype}")
         target = prepare_target(
             scheduler=self.scheduler, noise=noise, latents=model_input
         )
-        # print(f"target.dtype: {target.dtype}")
         loss = weights.float() * (model_output.float() - target.float()).pow(2)
         # Average loss across all but batch dimension
         loss = loss.mean(list(range(1, loss.ndim)))
@@ -1041,16 +1018,9 @@ class HunyuanVideoWorkFlow(pl.LightningModule):
         # (this is the forward diffusion process)
         noisy_model_input = self.scheduler.add_noise(model_input, noise, timesteps)
 
-        # print('noisy_model_input.dtype', noisy_model_input.dtype)
-        # print('timesteps.dtype', timesteps.dtype, timesteps.shape)
-        # print('prompt_embeds.dtype', prompt_embeds.dtype)
-        # print('prompt_attention_mask.dtype', prompt_attention_mask.dtype)
-        # print('pooled_prompt_embeds.dtype', pooled_prompt_embeds.dtype)
-        # prin
         # guidance = torch.tensor([self._guidance_scale], device=self.device, dtype=self.vae.dtype) * 1000.0
         guidance_scale = 1.0
         guidance = torch.tensor([guidance_scale] * noisy_model_input.shape[0], dtype=noisy_model_input.dtype, device=noisy_model_input.device) * 1000.0
-        # print('guidance.dtype', guidance.dtype, guidance.shape)
         model_output = self.model(
                     hidden_states=noisy_model_input,
                     timestep=timesteps,

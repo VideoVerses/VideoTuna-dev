@@ -8,21 +8,11 @@ RESROOT="results/train"             # experiment saving directory
 EXPNAME="hunyuanvideo_t2v_lora"          # experiment name 
 CURRENT_TIME=$(date +%Y%m%d%H%M%S)  # current time
 
-# run
-# python scripts/train.py \
-# -t \
-# --base $CONFIG \
-# --logdir $RESROOT \
-# --name "$CURRENT_TIME"_$EXPNAME \
-# --devices '0,' \
-# lightning.trainer.num_nodes=1 \
-# --auto_resume
-
-FSDP_CPU_RAM_EFFICIENT_LOADING=1 python scripts/train.py \
+python scripts/train.py \
 -t \
 --base $CONFIG \
 --logdir $RESROOT \
 --name "$CURRENT_TIME"_$EXPNAME \
---devices '0,1,2,3' \
+--devices '0,1' \
 lightning.trainer.num_nodes=1 \
 --auto_resume
