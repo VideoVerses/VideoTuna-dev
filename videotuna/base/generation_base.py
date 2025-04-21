@@ -64,6 +64,7 @@ class GenerationBase(TrainBase, InferenceBase):
 
         logger.info("creating scheduler")
         self.scheduler = instantiate_from_config(scheduler_config)
+        self.diffusion_scheduler = self.scheduler
         self.components.append('scheduler')
 
         self.first_stage_config = first_stage_config

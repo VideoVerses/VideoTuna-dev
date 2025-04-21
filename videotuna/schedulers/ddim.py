@@ -218,7 +218,7 @@ class DDIMSampler(object):
         guidance_rescale=0.0,
         **kwargs,
     ):
-        device = self.model.diffusion_scheduler.betas.device
+        device = self.model.device
 
         b = shape[0]
         if x_T is None:
