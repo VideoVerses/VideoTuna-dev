@@ -21,7 +21,7 @@ from torchvision.utils import make_grid
 
 from videotuna.flow.base.ddim import DDIMSampler
 from videotuna.flow.base.ddpm3d import DDPMFlow
-from videotuna.flow.base.diffusion_schedulers import DDPMScheduler
+from videotuna.scheduler.diffusion_schedulers import DDPMScheduler
 from videotuna.utils.distributions import DiagonalGaussianDistribution, normal_kl
 from videotuna.utils.diffusion_utils import (
     discretized_gaussian_log_likelihood,

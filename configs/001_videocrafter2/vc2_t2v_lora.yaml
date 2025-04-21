@@ -29,7 +29,7 @@ model:
     scale_b: 0.7 # adapt to videocrafter-v2
 
     diffusion_scheduler_config:
-      target: videotuna.flow.base.diffusion_schedulers.LDMScheduler
+      target: videotuna.scheduler.diffusion_schedulers.LDMScheduler
       params:
         timesteps: 1000
         linear_start: 0.00085

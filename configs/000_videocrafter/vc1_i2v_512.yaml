@@ -21,7 +21,7 @@ model:
     finegrained: true
 
     diffusion_scheduler_config:
-      target: videotuna.flow.base.diffusion_schedulers.LDMScheduler
+      target: videotuna.scheduler.diffusion_schedulers.LDMScheduler
       params:
         timesteps: 1000
         linear_start: 0.00085
