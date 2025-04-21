@@ -11,9 +11,8 @@ This document provides instructions for fine-tuning the HunyuanVideo model.
 1. Run the commands in the terminal to launch training.
     ```
     bash shscripts/train_hunyuanvideo_t2v_lora.sh
-    or 
-    bash shscripts/train_hunyuanvideo_t2v_lora_deepspeed.sh
     ```
+    NOTE: this script uses deepspeed for training.
 2. After training, run the commands to inference your personalized models.
     ```
     bash shscripts/inference_hunyuanvideo_t2v_lora.sh

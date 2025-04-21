@@ -8,12 +8,8 @@ import torch
 from omegaconf import OmegaConf
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.cli import LightningCLI
+from deepspeed.utils.zero_to_fp32 import get_fp32_state_dict_from_zero_checkpoint
 from transformers import logging as transf_logging
-
-import torch
-import pytorch_lightning as pl
-from pytorch_lightning import seed_everything, Trainer
-from pytorch_lightning.cli import LightningCLI
 
 sys.path.insert(0, os.getcwd())
 from videotuna.utils.common_utils import instantiate_from_config
@@ -217,52 +213,8 @@ if __name__ == "__main__":
         instantiate_from_config(callbacks_cfg[k]) for k in callbacks_cfg
     ]
     strategy_cfg = get_trainer_strategy(lightning_config)
-    if type(strategy_cfg) == str:
-        if strategy_cfg == "fsdp":
-            logger.info("running in fsdp mode")
-            from torch.distributed.fsdp import MixedPrecision, CPUOffload
-            fp16_policy = MixedPrecision(
-                param_dtype=torch.float16,
-                reduce_dtype=torch.float16,
-                buffer_dtype=torch.float16
-                )
-
-            trainer_kwargs["strategy"] = pl.strategies.FSDPStrategy(
-                sharding_strategy="HYBRID_SHARD",
-                state_dict_type="full",
-                timeout=datetime.timedelta(hours=1),
-                device_mesh=(4,1),
-                mixed_precision=fp16_policy
-            )
-        elif strategy_cfg == "deepspeed":
-            logger.info("running in deepspeed mode")
-            trainer_kwargs["strategy"] = pl.strategies.DeepSpeedStrategy(
-                stage=3,
-                config={
-                    # Use bf16 to prevent loss scale problem. Please refer to https://github.com/hiyouga/LLaMA-Factory/issues/251 for more details.
-                    "bf16": {
-                        "enabled": "auto"
-                    },
-                    "zero_optimization": {
-                        "stage": 3,
-                        "offload_optimizer": {"device": "cpu", "pin_memory": True},
-                        "overlap_comm": True,
-                        "contiguous_gradients": True,
-                    },
-                    "fp16": {
-                        "enabled": False,
-                        "loss_scale": 0,
-                        "loss_scale_window": 1000,
-                        "hysteresis": 2,
-                        "min_loss_scale": 1
-                    },
-                    
-                }
-            )
-        else:
-            trainer_kwargs["strategy"] = strategy_cfg
-    else:
-        trainer_kwargs["strategy"] = instantiate_from_config(strategy_cfg)
+    print('strategy cfg: ', strategy_cfg)
+    trainer_kwargs["strategy"] = strategy_cfg if type(strategy_cfg) == str else instantiate_from_config(strategy_cfg)
 
     trainer_kwargs["sync_batchnorm"] = False
 
@@ -286,7 +238,6 @@ if __name__ == "__main__":
     # merge args for trainer
     print(f"trainer_kwargs: {trainer_kwargs}")
     trainer = Trainer(**trainer_config, **trainer_kwargs)
-
 
     ## allow checkpointing via USR1
     def melk(*args, **kwargs):
@@ -322,10 +273,14 @@ if __name__ == "__main__":
                 with torch.cuda.amp.autocast():
                     trainer.fit(model, data)
             else:
+                # import pdb
+                # pdb.set_trace()
                 trainer.fit(model, data)
         except Exception as e:
             logger.error(f"Training failed: {str(e)}")
             raise
+    
+    logger.info("***** Converting deepspeed checkpoint into correct format *****")
 
     if args.val:
         # Directly call validation
