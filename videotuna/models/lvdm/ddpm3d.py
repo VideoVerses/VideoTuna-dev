@@ -15,6 +15,7 @@ from functools import partial
 import numpy as np
 from einops import rearrange, repeat
 from tqdm import tqdm
+from omegaconf import DictConfig
 
 mainlogger = logging.getLogger("mainlogger")
 
@@ -1615,7 +1616,7 @@ class DiffusionWrapper(pl.LightningModule):
     def __init__(self, diff_model_config, conditioning_key):
         super().__init__()
         
-        if isinstance(diff_model_config, dict):
+        if isinstance(diff_model_config, dict) or isinstance(diff_model_config, DictConfig):
             self.diffusion_model = instantiate_from_config(diff_model_config)
         elif isinstance(diff_model_config, nn.Module):
             self.diffusion_model = diff_model_config
