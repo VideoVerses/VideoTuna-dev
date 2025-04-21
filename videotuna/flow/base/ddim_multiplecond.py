@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from videotuna.flow.base.utils_diffusion import (
+from videotuna.utils.diffusion_utils import (
     make_ddim_sampling_parameters,
     make_ddim_timesteps,
     rescale_noise_cfg,

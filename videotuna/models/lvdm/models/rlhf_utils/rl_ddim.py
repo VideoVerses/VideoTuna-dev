@@ -6,7 +6,7 @@ import torch
 from models.lvdm.modules.utils import noise_like
 from tqdm import tqdm
 
-from videotuna.flow.base.utils_diffusion import (
+from videotuna.utils.diffusion_utils import (
     make_ddim_sampling_parameters,
     make_ddim_timesteps,
 )

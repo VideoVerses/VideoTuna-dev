@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange
 
-from videotuna.flow.base.utils_diffusion import timestep_embedding
+from videotuna.utils.diffusion_utils import timestep_embedding
 from videotuna.models.lvdm.modules.attention import SpatialTransformer, TemporalTransformer
 from videotuna.models.lvdm.modules.utils import (
     avg_pool_nd,
