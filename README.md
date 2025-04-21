@@ -217,7 +217,7 @@ All  training commands were tested on H800 80G GPUs.
 |T2V|CogvideoX|Lora Fine-tune|`poetry run train-cogvideox-t2v-lora`|[docs/finetune_cogvideox.md](docs/finetune_cogvideox.md)|1|
 |T2V|CogvideoX|Full Fine-tune|`poetry run train-cogvideox-t2v-fullft`|[docs/finetune_cogvideox.md](docs/finetune_cogvideox.md)|4|
 |T2V|Open-Sora v1.0|Full Fine-tune|`poetry run train-opensorav10`|-|1|
-|T2V|VideoCrafter|Lora Fine-tune|`train-videocrafter-lora`|[docs/finetune_videocrafter.md](docs/finetune_videocrafter.md)|1|
+|T2V|VideoCrafter|Lora Fine-tune|`poetry run train-videocrafter-lora`|[docs/finetune_videocrafter.md](docs/finetune_videocrafter.md)|1|
 |T2V|VideoCrafter|Full Fine-tune|`poetry run train-videocrafter-v2`|[docs/finetune_videocrafter.md](docs/finetune_videocrafter.md)|1|
 
 ---
