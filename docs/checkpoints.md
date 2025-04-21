@@ -44,13 +44,11 @@ git clone https://huggingface.co/THUDM/CogVideoX1.5-5B-SAT  # This are checkpoin
 
 # ---- HunyuanVideo (diffusers) ----
 cd VideoTuna   # Make sure you are under the root path of VideoTuna
-python -m pip install "huggingface_hub[cli]"   # You may follow the instructions [here](https://huggingface.co/docs/huggingface_hub/guides/cli).
-huggingface-cli download tencent/HunyuanVideo --local-dir ./checkpoints/hunyuanvideo/HunyuanVideo
-cd checkpoints/hunyuanvideo/HunyuanVideo
-huggingface-cli download xtuner/llava-llama-3-8b-v1_1-transformers --local-dir ./llava-llama-3-8b-v1_1-transformers
-huggingface-cli download openai/clip-vit-large-patch14 --local-dir ./text_encoder_2
-cd ../../..
-python videotuna/models/hyvideo/utils/preprocess_text_encoder_tokenizer_utils.py --input_dir checkpoints/hunyuanvideo/HunyuanVideo/llava-llama-3-8b-v1_1-transformers --output_dir checkpoints/hunyuanvideo/HunyuanVideo/text_encoder
+mkdir checkpoints/hunyuan
+cd checkpoints/hunyuan
+git lfs install
+git clone https://huggingface.co/hunyuanvideo-community/HunyuanVideo
+
 
 # ---- Open-Sora ----
 mkdir -p checkpoints/open-sora/t2v_v10
