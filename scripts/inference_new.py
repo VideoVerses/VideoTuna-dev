@@ -18,7 +18,7 @@ sys.path.insert(1, f"{os.getcwd()}/src")
 
 from videotuna.utils.args_utils import prepare_inference_args
 from videotuna.utils.common_utils import instantiate_from_config
-from videotuna.flow.generation_base import GenerationFlow
+from videotuna.base.generation_base import GenerationFlow
 from videotuna.utils.common_utils import monitor_resources
 
 def get_parser():

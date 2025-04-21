@@ -11,7 +11,7 @@ import asyncio
 from tqdm import tqdm
 from omegaconf import OmegaConf, DictConfig
 
-from videotuna.flow.generation_base import GenerationFlow
+from videotuna.base.generation_base import GenerationFlow
 from videotuna.utils.common_utils import instantiate_from_config
 
 

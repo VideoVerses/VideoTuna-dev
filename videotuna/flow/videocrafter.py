@@ -22,7 +22,7 @@ from videotuna.utils.ema import LitEma
 from videotuna.models.lvdm.ddpm3d import DiffusionWrapper
 from videotuna.utils.distributions import DiagonalGaussianDistribution
 from videotuna.scheduler.ddim import DDIMSampler
-from videotuna.flow.generation_base import GenerationFlow
+from videotuna.base.generation_base import GenerationFlow
 from videotuna.utils.common_utils import instantiate_from_config, print_green, print_yellow
 from videotuna.models.lvdm.modules.utils import (
     default,

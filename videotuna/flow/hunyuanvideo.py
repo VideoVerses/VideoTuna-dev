@@ -21,7 +21,7 @@ from videotuna.models.hunyuan.hyvideo_i2v.modules.fp8_optimization import conver
 from videotuna.models.hunyuan.hyvideo_i2v.diffusion.schedulers import FlowMatchDiscreteScheduler
 from videotuna.models.hunyuan.hyvideo_i2v.diffusion.pipelines import HunyuanVideoPipeline
 from videotuna.models.hunyuan.hyvideo_i2v.utils.file_utils import save_videos_grid
-from videotuna.flow.generation_base import GenerationFlow
+from videotuna.base.generation_base import GenerationFlow
 from videotuna.utils.common_utils import monitor_resources
 import torchvision.transforms as transforms
 from PIL import Image

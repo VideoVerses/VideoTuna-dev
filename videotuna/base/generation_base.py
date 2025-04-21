@@ -9,8 +9,8 @@ import torch.nn.functional as F
 import pytorch_lightning as pl
 from torch.optim.lr_scheduler import CosineAnnealingLR, LambdaLR
 
-from videotuna.flow.train_base import TrainBase
-from videotuna.flow.inference_base import InferenceBase
+from videotuna.base.train_base import TrainBase
+from videotuna.base.inference_base import InferenceBase
 from videotuna.utils.common_utils import instantiate_from_config, print_green, print_yellow
 
 
