@@ -178,7 +178,7 @@ def parallelize_transformer(pipe):
     transformer.forward = new_forward
 
 
-class HunyuanVideoFlow(GenerationFlow):
+class HunyuanVideoFlow(GenerationBase):
     def __init__(
         self,
         first_stage_config: Dict[str, Any],

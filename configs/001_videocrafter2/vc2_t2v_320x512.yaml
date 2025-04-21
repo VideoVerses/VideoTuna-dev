@@ -23,7 +23,7 @@ flow:
     scale_b: 0.7 # adapt to videocrafter-v2
 
     scheduler_config:
-      target: videotuna.schedulers.LDDPM
+      target: videotuna.schedulers.ddpm.LDDPM
       params: 
         timesteps: 1000
         linear_start: 0.00085

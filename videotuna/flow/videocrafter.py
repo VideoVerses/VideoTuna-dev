@@ -36,7 +36,7 @@ mainlogger = logging.getLogger("mainlogger")
 
 
 
-class VideocrafterFlow(GenerationFlow):
+class VideocrafterFlow(GenerationBase):
     """
     Training and inference flow for VideoCrafter.
 

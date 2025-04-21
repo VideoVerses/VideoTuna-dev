@@ -36,7 +36,7 @@ EXAMPLE_PROMPT = {
     },
 }
 
-class WanVideoModelFlow(GenerationFlow):
+class WanVideoModelFlow(GenerationBase):
     """
     Training and inference flow for YourModel.
     

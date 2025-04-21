@@ -3,19 +3,39 @@ import glob
 import os
 import sys
 from functools import partial
+from abc import abstractmethod
 
 import numpy as np
 import pytorch_lightning as pl
 import torch
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, IterableDataset
 
 os.chdir(sys.path[0])
 sys.path.append("..")
 
-from videotuna.data.base import Txt2ImgIterableBaseDataset
 from videotuna.utils.common_utils import instantiate_from_config
 
+class Txt2ImgIterableBaseDataset(IterableDataset):
+    """
+    Define an interface to make the IterableDatasets for text2img data chainable
+    """
 
+    def __init__(self, num_records=0, valid_ids=None, size=256):
+        super().__init__()
+        self.num_records = num_records
+        self.valid_ids = valid_ids
+        self.sample_ids = valid_ids
+        self.size = size
+
+        print(f"{self.__class__.__name__} dataset contains {self.__len__()} examples.")
+
+    def __len__(self):
+        return self.num_records
+
+    @abstractmethod
+    def __iter__(self):
+        pass
+     
 def worker_init_fn(_):
     worker_info = torch.utils.data.get_worker_info()
 

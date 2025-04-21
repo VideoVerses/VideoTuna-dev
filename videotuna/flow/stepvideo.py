@@ -38,7 +38,7 @@ from xfuser.model_executor.models.customized.step_video_t2v.tp_applicator import
 from xfuser.core.distributed.parallel_state import get_tensor_model_parallel_world_size, get_tensor_model_parallel_rank
 
 
-class StepVideoModelFlow(GenerationFlow):
+class StepVideoModelFlow(GenerationBase):
     """
     Training and inference flow for YourModel.
     
