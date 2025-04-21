@@ -18,7 +18,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.utilities import rank_zero_only
 from torchvision.utils import make_grid
 
-from videotuna.flow.base.ema import LitEma
+from videotuna.utils.ema import LitEma
 from videotuna.flow.base.ddpm3d import DiffusionWrapper
 from videotuna.utils.distributions import DiagonalGaussianDistribution
 from videotuna.scheduler import DDIMSampler
