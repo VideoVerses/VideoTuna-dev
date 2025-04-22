@@ -24,8 +24,7 @@
 
 ## 🔆 Updates
 
-- [2025-04-21] 🐟 Supported **inference** for `Wan2.1` and `Step Video`.
-- [2025-04-21] 🐟 Supported **fine-tuning** for `HunyuanVideo`.
+- [2025-04-22] 🐟 Supported **inference** for `Wan2.1` and `Step Video` and **fine-tuning** for `HunyuanVideo T2V`, with a unified codebase architecture.
 - [2025-02-03] 🐟 Supported automatic code formatting via [PR#27](https://github.com/VideoVerses/VideoTuna/pull/27). Thanks [@samidarko](https://github.com/samidarko)!
 - [2025-02-01] 🐟 Migrated to [Poetry](https://python-poetry.org) for streamlined dependency and script management ([PR#25](https://github.com/VideoVerses/VideoTuna/pull/25)). Thanks [@samidarko](https://github.com/samidarko)!
 - [2025-01-20] 🐟 Supported **fine-tuning** for `Flux-T2I`.
