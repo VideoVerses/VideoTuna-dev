@@ -213,6 +213,7 @@ All  training commands were tested on H800 80G GPUs.
 
 |Task|Model|Mode|Command|More Details|#GPUs|
 |:----|:---------|:---------------|:-----------------------------------------|:----------------------------|:------|
+|T2V|Hunyuan Video|Lora Fine-tune|`poetry run train-hunyuan-t2v-lora`|[docs/finetune_hunyuanvideo.md](docs/finetune_hunyuanvideo.md)|2|
 |T2V|CogvideoX|Lora Fine-tune|`poetry run train-cogvideox-t2v-lora`|[docs/finetune_cogvideox.md](docs/finetune_cogvideox.md)|1|
 |T2V|CogvideoX|Full Fine-tune|`poetry run train-cogvideox-t2v-fullft`|[docs/finetune_cogvideox.md](docs/finetune_cogvideox.md)|4|
 |T2V|Open-Sora v1.0|Full Fine-tune|`poetry run train-opensorav10`|-|1|
