@@ -34,8 +34,7 @@
 - [2024-12-01] 🐟 Supported **inference** for `CogVideoX-1.5-T2V&I2V` and `Video-to-Video Enhancement` from ModelScope.
 - [2024-12-01] 🐟 Supported **fine-tuning** for `CogVideoX`.
 - [2024-11-01] 🐟 🎉 Released **VideoTuna v0.1.0**!  
-  Initial support includes inference for `VideoCrafter1-T2V&I2V`, `VideoCrafter2-T2V`, `DynamiCrafter-I2V`, `OpenSora-T2V`, `CogVideoX-1-2B-T2V`, `CogVideoX-1-T2V`, `Flux-T2I`, and partial support for training/fine-tuning.
-
+  Initial support includes inference for `VideoCrafter1-T2V&I2V`, `VideoCrafter2-T2V`, `DynamiCrafter-I2V`, `OpenSora-T2V`, `CogVideoX-1-2B-T2V`, `CogVideoX-1-T2V`, `Flux-T2I`, and training/fine-tuning of `VideoCrafter`, `DynamiCrafter`, and `Open-Sora`.
 
 ## 🔆 Get started
 
