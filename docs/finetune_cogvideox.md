@@ -2,6 +2,7 @@
 # Introduction
 - This document provides instructions for fine-tuning the CogvideoX model.
 - It supports both text-to-video and image-to-video.
+- It supports both full fine-tuning and lora fine-tuning.
 
 # Preliminary steps
 1. Install the videotuna environment (see [Installation](https://github.com/VideoVerses/VideoTuna?tab=readme-ov-file#1prepare-environment)).

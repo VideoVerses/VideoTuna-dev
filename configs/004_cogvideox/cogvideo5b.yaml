@@ -1,6 +1,6 @@
 model:
   base_learning_rate: 6e-6
-  target: videotuna.cogvideo_hf.cogvideo_pl.CogVideoXWorkFlow
+  target: videotuna.models.cogvideo_hf.cogvideo_pl.CogVideoXWorkFlow
   params:
     # VAE of CogVideoX
     first_stage_config:
@@ -11,7 +11,7 @@ model:
 
     # Text encoder (T5) of CogVideoX
     cond_stage_config:
-      target: videotuna.lvdm.modules.encoders.condition.FrozenT5Embedder
+      target: videotuna.models.lvdm.modules.encoders.condition.FrozenT5Embedder
       params:
         version: "DeepFloyd/t5-v1_1-xxl"
         device: "cuda"
@@ -42,7 +42,7 @@ model:
         subfolder: scheduler
 
 data:
-  target: videotuna.data.lightning_data.DataModuleFromConfig
+  target: videotuna.data.lightningdata.DataModuleFromConfig
   params:
     batch_size: 1
     num_workers: 16

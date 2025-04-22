@@ -8,9 +8,9 @@ import torch
 from omegaconf import OmegaConf
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.cli import LightningCLI
+from deepspeed.utils.zero_to_fp32 import get_fp32_state_dict_from_zero_checkpoint
 from transformers import logging as transf_logging
 
-# sys.path.insert(1, os.path.join(sys.path[0], '..'))
 sys.path.insert(0, os.getcwd())
 from videotuna.utils.common_utils import instantiate_from_config
 from videotuna.utils.lightning_utils import add_trainer_args_to_parser
@@ -213,11 +213,9 @@ if __name__ == "__main__":
         instantiate_from_config(callbacks_cfg[k]) for k in callbacks_cfg
     ]
     strategy_cfg = get_trainer_strategy(lightning_config)
-    trainer_kwargs["strategy"] = (
-        strategy_cfg
-        if type(strategy_cfg) == str
-        else instantiate_from_config(strategy_cfg)
-    )
+    print('strategy cfg: ', strategy_cfg)
+    trainer_kwargs["strategy"] = strategy_cfg if type(strategy_cfg) == str else instantiate_from_config(OmegaConf.to_container(strategy_cfg))
+
     trainer_kwargs["sync_batchnorm"] = False
 
     ## trainer config: others
@@ -267,15 +265,22 @@ if __name__ == "__main__":
         try:
             # Strategy is automatically managed, no need to manually check it here
             logger.info(f"<Training in {trainer.strategy.__class__.__name__} Mode>")
+            if trainer.strategy.__class__.__name__ == 'DeepSpeedStrategy':
+                logger.info(f"Make parameter contiguous in case deepseed does not allow non contigouous data")
+                for param in model.parameters(): param.data = param.data.contiguous()
             # Please refer to https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.plugins.precision.MixedPrecision.html for Automatic Mixed Precision (AMP) training
             if trainer.strategy == "deepspeed":
                 with torch.cuda.amp.autocast():
                     trainer.fit(model, data)
             else:
+                # import pdb
+                # pdb.set_trace()
                 trainer.fit(model, data)
         except Exception as e:
             logger.error(f"Training failed: {str(e)}")
             raise
+    
+    logger.info("***** Converting deepspeed checkpoint into correct format *****")
 
     if args.val:
         # Directly call validation

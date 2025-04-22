@@ -12,12 +12,8 @@ This document provides instructions for fine-tuning the Flux.1-dev model.
     - To log in, `huggingface_hub` requires a token generated from [this link](https://huggingface.co/settings/tokens). Get the token from Hugging Face and enter the token in your terminal.
 
 # Steps of Simple Fine-tuning
-1. Put images in `data/images/${DataName}`. We provide example images that can be manually downloaded at [this link](https://huggingface.co/datasets/Yingqing/VideoTuna-Datasets/resolve/main/nezha.zip), or download and unzip via
-```
-wget https://huggingface.co/datasets/Yingqing/VideoTuna-Datasets/resolve/main/nezha.zip
-unzip nezha.zip -d data/images/nezha
-```
-3. Set the exp configs in the file `configs/006_flux/config.json` and `configs/006_flux/multidatabackend.json`
+We use images in `inputs/t2i/flux/plushie_teddybear` to train.  
+1. Set the exp configs in the file `configs/006_flux/config.json` and `configs/006_flux/multidatabackend.json`
     <details>
       <summary>Click to view the introduction to these arguments</summary>
 
@@ -92,4 +88,17 @@ unzip nezha.zip -d data/images/nezha
     ```
     - ${out_path} should be a directory.
 
-
+# Use your own dataset
+If you want to build your own dataset, please organize your data as `inputs/t2i/flux/plushie_teddybear`, which contains the training images and the corresponding text prompt files, as shown in the following directory structure.  
+Then modify the `instance_data_dir` in`configs/006_flux/multidatabackend.json`.
+```
+your_own_data/
+    ├── img1.jpg
+    ├── img2.jpg
+    ├── img3.jpg
+    ├── ...
+    ├── prompt1.txt      # prompt of img1.jpg
+    ├── prompt2.txt      # prompt of img2.jpg
+    ├── prompt3.txt      # prompt of img3.jpg
+    ├── ...
+```

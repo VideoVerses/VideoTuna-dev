@@ -1,6 +1,6 @@
 model:
   base_learning_rate: 6e-6
-  target: videotuna.cogvideo_hf.cogvideo_i2v.CogVideoXI2V
+  target: videotuna.models.cogvideo_hf.cogvideo_i2v.CogVideoXI2V
   params:
     noised_image_input: True
     noised_image_dropout: 0.05
@@ -13,7 +13,7 @@ model:
 
     # Text encoder (T5) of CogVideoX
     cond_stage_config:
-      target: videotuna.lvdm.modules.encoders.condition.FrozenT5Embedder
+      target: videotuna.models.lvdm.modules.encoders.condition.FrozenT5Embedder
       params:
         version: "DeepFloyd/t5-v1_1-xxl"
         device: "cuda"
@@ -44,32 +44,8 @@ model:
         pretrained_model_name_or_path: checkpoints/cogvideo/CogVideoX-5b-I2V
         subfolder: scheduler
 
-# data configs
-# data:
-#   target: videotuna.data.lightning_data.DataModuleFromConfig
-#   params:
-#     batch_size: 2
-#     num_workers: 16
-#     wrap: false
-#     train:
-#       target: videotuna.data.cogvideo_dataset.VideoDataset
-#       params:
-#         instance_data_root: inputs/data-cartoon-talk #"inputs/t2v/cogvideo/elon_musk_video"
-#         dataset_name: null
-#         dataset_config_name: null
-#         caption_column: "labels.txt"
-#         video_column: "videos.txt"
-#         height: 480
-#         width: 720
-#         fps: 28
-#         max_num_frames: 2
-#         skip_frames_start: 0
-#         skip_frames_end: 0
-#         cache_dir: ~/.cache
-#         id_token: null
-#         image_to_video: true
 data:
-  target: videotuna.data.lightning_data.DataModuleFromConfig
+  target: videotuna.data.lightningdata.DataModuleFromConfig
   params:
     batch_size: 1
     num_workers: 16

@@ -176,10 +176,12 @@ def load_model(args, cuda_idx=0):
     model = instantiate_from_config(model_config)
     model = model.cuda(cuda_idx)
     # load weights
-    assert os.path.exists(
-        args.ckpt_path
-    ), f"Error: checkpoint [{args.ckpt_path}] Not Found!"
-    model = load_model_checkpoint(model, args.ckpt_path)
+    skip_loading_weight = hasattr(model_config, "skip_loading_weight") and model_config.skip_loading_weight
+    if not skip_loading_weight:
+        assert os.path.exists(
+            args.ckpt_path
+        ), f"Error: checkpoint [{args.ckpt_path}] Not Found!"
+        model = load_model_checkpoint(model, args.ckpt_path)
     # load lora weights
     if hasattr(model, "lora_args") and len(model.lora_args) != 0:
         model.inject_lora()

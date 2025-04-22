@@ -7,7 +7,7 @@ VC2CKPT="checkpoints/videocrafter/t2v_v2_512/model.ckpt"
 # LORACKPT="checkpoints/lora/512/lora.ckpt"
 
 # exp settings
-EXPNAME="train_t2v_512_lora"                            # experiment name
+EXPNAME="videocrafter2_t2v_lora"                            # experiment name
 CONFIG='configs/001_videocrafter2/vc2_t2v_lora.yaml' # experiment config
 RESROOT="results/train"                               # experiment saving directory
 

@@ -1,5 +1,5 @@
 model:
-  target: videotuna.base.ddpm3d.LVDMFlow
+  target: videotuna.models.lvdm.ddpm3d.LVDMFlow
   params:
     linear_start: 0.00085
     linear_end: 0.012
@@ -20,14 +20,14 @@ model:
     fix_scale_bug: true
 
     diffusion_scheduler_config:
-      target: videotuna.base.diffusion_schedulers.LDMScheduler
+      target: videotuna.schedulers.diffusion_schedulers.LDMScheduler
       params:
         timesteps: 1000
         linear_start: 0.00085
         linear_end: 0.012
 
     unet_config:
-      target: videotuna.lvdm.modules.networks.openaimodel3d.UNetModel
+      target: videotuna.models.lvdm.modules.networks.openaimodel3d.UNetModel
       params:
         in_channels: 4
         out_channels: 4
@@ -56,7 +56,7 @@ model:
         addition_attention: true
         fps_cond: true
     first_stage_config:
-      target: videotuna.lvdm.modules.vae.autoencoder.AutoencoderKL
+      target: videotuna.models.lvdm.modules.vae.autoencoder.AutoencoderKL
       params:
         embed_dim: 4
         monitor: val/rec_loss
@@ -78,7 +78,7 @@ model:
         lossconfig:
           target: torch.nn.Identity
     cond_stage_config:
-      target: videotuna.lvdm.modules.encoders.condition.FrozenOpenCLIPEmbedder
+      target: videotuna.models.lvdm.modules.encoders.condition.FrozenOpenCLIPEmbedder
       params:
         freeze: true
         layer: penultimate

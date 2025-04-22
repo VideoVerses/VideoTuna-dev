@@ -25,7 +25,7 @@ from diffusers.utils.torch_utils import randn_tensor
 from transformers import T5EncoderModel, T5Tokenizer
 
 from videotuna.utils.common_utils import get_resize_crop_region_for_grid
-from videotuna.third_party.flux.models.smoldit import SmolDiT2DModel
+from videotuna.third_party.flux.models.smoldit.transformer import SmolDiT2DModel
 
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 

@@ -1,9 +1,9 @@
 model:
   base_learning_rate: 1.0e-05
   scale_lr: False
-  target: videotuna.base.ddpm3d.LatentVisualDiffusionFlow
+  target: videotuna.models.lvdm.ddpm3d.LatentVisualDiffusionFlow
   params:
-    parameterization: "v"
+    parameterization: v
     log_every_t: 200
     first_stage_key: video
     cond_stage_key: caption
@@ -16,14 +16,14 @@ model:
     scale_factor: 0.18215
     use_ema: False
     uncond_prob: 0.05
-    uncond_type: 'empty_seq'
+    uncond_type: empty_seq
     rand_cond_frame: true
     use_scale: true
     scale_b: 0.3
-    fps_condition_type: 'fps'
+    fps_condition_type: fps
 
     diffusion_scheduler_config:
-      target: videotuna.base.diffusion_schedulers.LDMScheduler
+      target: videotuna.schedulers.diffusion_schedulers.LDMScheduler
       params:
         timesteps: 1000
         linear_start: 0.00085
@@ -31,7 +31,7 @@ model:
         rescale_betas_zero_snr: True
 
     unet_config:
-      target: videotuna.lvdm.modules.networks.openaimodel3d_dc.UNetModel
+      target: videotuna.models.lvdm.modules.networks.openaimodel3d_dc.UNetModel
       params:
         in_channels: 8
         out_channels: 4
@@ -64,7 +64,7 @@ model:
         fs_condition: true
 
     first_stage_config:
-      target: videotuna.lvdm.modules.vae.autoencoder.AutoencoderKL
+      target: videotuna.models.lvdm.modules.vae.autoencoder.AutoencoderKL
       params:
         embed_dim: 4
         monitor: val/rec_loss
@@ -87,18 +87,18 @@ model:
           target: torch.nn.Identity
 
     cond_stage_config:
-      target: videotuna.lvdm.modules.encoders.condition.FrozenOpenCLIPEmbedder
+      target: videotuna.models.lvdm.modules.encoders.condition.FrozenOpenCLIPEmbedder
       params:
         freeze: true
-        layer: "penultimate"
+        layer: penultimate
 
     img_cond_stage_config:
-      target: videotuna.lvdm.modules.encoders.condition.FrozenOpenCLIPImageEmbedderV2
+      target: videotuna.models.lvdm.modules.encoders.condition.FrozenOpenCLIPImageEmbedderV2
       params:
         freeze: true
 
     image_proj_stage_config:
-      target: videotuna.lvdm.modules.encoders.ip_resampler.Resampler
+      target: videotuna.models.lvdm.modules.encoders.ip_resampler.Resampler
       params:
         dim: 1024
         depth: 4
@@ -111,7 +111,7 @@ model:
         video_length: 16
 
 data:
-  target: videotuna.data.lightning_data.DataModuleFromConfig
+  target: videotuna.data.lightningdata.DataModuleFromConfig
   params:
     batch_size: 2
     num_workers: 16
@@ -149,10 +149,11 @@ lightning:
       target: videotuna.utils.callbacks.ImageLogger
       params:
         batch_frequency: 2
-        save_dir: 'outputs/samples'
+        save_dir: outputs/samples
         max_images: 6
         to_local: True # save videos into files
         log_images_kwargs:
+          sample: false
           ddim_steps: 50
           unconditional_guidance_scale: 7.5
           timestep_spacing: uniform_trailing
@@ -160,7 +161,7 @@ lightning:
     model_checkpoint:
       target: pytorch_lightning.callbacks.ModelCheckpoint
       params:
-        every_n_train_steps: 9000 #1000
+        every_n_train_steps: 50
         filename: "{epoch:04}-{step:06}"
         save_weights_only: True
     metrics_over_trainsteps_checkpoint:

@@ -1,14 +1,11 @@
 model:
   base_learning_rate: 6.0e-06 # 1.5e-04
   scale_lr: False
-  # empty_params_only: True # disable this means finetuning all parameters
-  target: videotuna.base.iddpm3d.LatentDiffusion
+  target: videotuna.models.opensora.models.iddpm3d.LatentDiffusion
   params:
-    # loss_type: l1
     log_every_t: 200
     first_stage_key: video
     cond_stage_key: caption
-    # cond_stage_trainable: false
     cond_stage_trainable: true
     conditioning_key: crossattn_stdit
     image_size: # TO CHECK
@@ -25,14 +22,14 @@ model:
     scale_b: 0.7 # adapt to videocrafter-v2
 
     diffusion_scheduler_config:
-      target: videotuna.base.iddpm3d.OpenSoraScheduler
+      target: videotuna.models.opensora.models.iddpm3d.OpenSoraScheduler
       params:
         timesteps: 1000
         linear_start: 0.00085
         linear_end: 0.012
 
     unet_config:
-      target: videotuna.opensora.models.stdit.stdit.STDiT_XL_2
+      target: videotuna.models.opensora.models.stdit.stdit.STDiT_XL_2
       params:
         space_scale: 0.5
         time_scale: 1.0
@@ -44,19 +41,19 @@ model:
         - 32
         - 32
     first_stage_config:
-      target: videotuna.lvdm.opensoravae.VideoAutoencoderKL
+      target: videotuna.models.opensora.models.vae.opensoravae.VideoAutoencoderKL
       params:
           from_pretrained: stabilityai/sd-vae-ft-ema
           micro_batch_size: 4
     cond_stage_config:
-      target: videotuna.opensora.models.text_encoder.t5.T5Encoder
+      target: videotuna.models.opensora.models.text_encoder.t5.T5Encoder
       params:
-        from_pretrained: "DeepFloyd/t5-v1_1-xxl"
+        from_pretrained: DeepFloyd/t5-v1_1-xxl
         model_max_length: 120
         shardformer: False # TODO
 
 data:
-  target: videotuna.data.lightning_data.DataModuleFromConfig
+  target: videotuna.data.lightningdata.DataModuleFromConfig
   params:
     batch_size: 4
     num_workers: 16
@@ -103,8 +100,3 @@ lightning:
     accumulate_grad_batches: 1
     max_epochs: 2000
     precision: bf16 # training precision
-  # modelcheckpoint:
-  #   target: pytorch_lightning.callbacks.ModelCheckpoint
-  #   params:
-  #     every_n_epochs: 1
-  #     filename: "{epoch:04}-{step:06}"
