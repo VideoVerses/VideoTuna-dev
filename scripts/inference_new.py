@@ -217,7 +217,7 @@ def run_inference(args, gpu_num=1, rank=0, **kwargs):
     # 1.2 load weight to cpu
     # 1.3 vram management (default to cuda)
     flow_config = config.pop("flow", OmegaConf.create(flags={"allow_objects": True}))
-    flow : GenerationFlow = instantiate_from_config(flow_config, resolve=True)
+    flow : GenerationBase = instantiate_from_config(flow_config, resolve=True)
     flow.from_pretrained(inference_config.ckpt_path)
     flow.enable_vram_management()
     flow.eval()

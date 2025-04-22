@@ -98,7 +98,6 @@ data:
 
 # training configs
 lightning:
-  strategy: fsdp
   trainer:
     benchmark: True
     num_nodes: 1

@@ -214,7 +214,7 @@ if __name__ == "__main__":
     ]
     strategy_cfg = get_trainer_strategy(lightning_config)
     print('strategy cfg: ', strategy_cfg)
-    trainer_kwargs["strategy"] = strategy_cfg if type(strategy_cfg) == str else instantiate_from_config(strategy_cfg)
+    trainer_kwargs["strategy"] = strategy_cfg if type(strategy_cfg) == str else instantiate_from_config(OmegaConf.to_container(strategy_cfg))
 
     trainer_kwargs["sync_batchnorm"] = False
 
