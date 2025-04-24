@@ -163,19 +163,20 @@ poetry run pip install "modelscope[cv]" -f https://modelscope.oss-cn-beijing.ali
 
 Run the following commands to inference models:
 It will automatically perform T2V/T2I based on prompts in `inputs/t2v/prompts.txt`, 
-and I2V based on images and prompts in `inputs/i2v/576x1024`.
+and I2V based on images and prompts in `inputs/i2v/576x1024`.  
+
 **T2V**
 Task|Model|Command|Length (#Frames)|Resolution|Inference Time|GPU Memory (GB)|
 |:---------|:---------|:---------|:---------|:---------|:---------|:---------|
-|T2V|HunyuanVideo|`poetry run inference-hunyuan-t2v`|129|720x1280|32min|60|
-|T2V|WanVideo|`poetry run inference-wanvideo-t2v-720p`|81|720x1280|32min|70|
-|T2V|StepVideo|`poetry run inference-stepvideo-t2v-544x992`|51|544x992|8min|61|
-|T2V|Mochi|`poetry run inference-mochi`|84|480x848|2min|26|
-|T2V|CogVideoX-5b|`poetry run inference-cogvideo-t2v-diffusers`|49|480x720|2min|3|
-|T2V|CogVideoX-2b|`poetry run inference-cogvideo-t2v-diffusers`|49|480x720|2min|3|
-|T2V|Open Sora V1.0|`poetry run inference-opensora-v10-16x256x256`|16|256x256|11s|24|
-|T2V|VideoCrafter-V2-320x512|`poetry run inference-vc2-t2v-320x512`|16|320x512|26s|11|
-|T2V|VideoCrafter-V1-576x1024|`poetry run inference-vc1-t2v-576x1024`|16|576x1024|2min|15|
+|T2V|HunyuanVideo|`poetry run inference-hunyuan-t2v`|129|720x1280|32min|60G|
+|T2V|WanVideo|`poetry run inference-wanvideo-t2v-720p`|81|720x1280|32min|70G|
+|T2V|StepVideo|`poetry run inference-stepvideo-t2v-544x992`|51|544x992|8min|61G|
+|T2V|Mochi|`poetry run inference-mochi`|84|480x848|2min|26G|
+|T2V|CogVideoX-5b|`poetry run inference-cogvideo-t2v-diffusers`|49|480x720|2min|3G|
+|T2V|CogVideoX-2b|`poetry run inference-cogvideo-t2v-diffusers`|49|480x720|2min|3G|
+|T2V|Open Sora V1.0|`poetry run inference-opensora-v10-16x256x256`|16|256x256|11s|24G|
+|T2V|VideoCrafter-V2-320x512|`poetry run inference-vc2-t2v-320x512`|16|320x512|26s|11G|
+|T2V|VideoCrafter-V1-576x1024|`poetry run inference-vc1-t2v-576x1024`|16|576x1024|2min|15G|
 
 ---
 
@@ -185,11 +186,11 @@ Task|Model|Command|Length (#Frames)|Resolution|Inference Time|GPU Memory (GB)|
 
 Task|Model|Command|Length (#Frames)|Resolution|Inference Time|GPU Memory (GB)|
 |:---------|:---------|:---------|:---------|:---------|:---------|:---------|
-|I2V|WanVideo|`poetry run inference-wanvideo-i2v-720p `|81|720x1280|28min|77|
-|I2V|HunyuanVideo|`poetry run inference-hunyuan-i2v-720p`|129|720x1280|29min|43|
-|I2V|CogVideoX-5b-I2V|`poetry run inference-cogvideox-15-5b-i2v`|49|480x720|5min|5|
-|I2V|DynamiCrafter|`poetry run inference-dc-i2v-576x1024`|16|576x1024|2min|53|
-|I2V|VideoCrafter-V1|`poetry run inference-vc1-i2v-320x512`|16|320x512|26s|11|
+|I2V|WanVideo|`poetry run inference-wanvideo-i2v-720p `|81|720x1280|28min|77G|
+|I2V|HunyuanVideo|`poetry run inference-hunyuan-i2v-720p`|129|720x1280|29min|43G|
+|I2V|CogVideoX-5b-I2V|`poetry run inference-cogvideox-15-5b-i2v`|49|480x720|5min|5G|
+|I2V|DynamiCrafter|`poetry run inference-dc-i2v-576x1024`|16|576x1024|2min|53G|
+|I2V|VideoCrafter-V1|`poetry run inference-vc1-i2v-320x512`|16|320x512|26s|11G|
 
 
 ---
@@ -198,9 +199,10 @@ Task|Model|Command|Length (#Frames)|Resolution|Inference Time|GPU Memory (GB)|
 
 Task|Model|Command|Length (#Frames)|Resolution|Inference Time|GPU Memory (GB)|
 |:---------|:---------|:---------|:---------|:---------|:---------|:---------|
-|T2I|Flux-dev|`poetry run inference-flux-dev`|1|768x1360|4min|2|
-|T2I|Flux-schnell|`poetry run inference-flux-schnell`|1|768x1360|5s|2|
-
+|T2I|Flux-dev|`poetry run inference-flux-dev`|1|768x1360|4s|37G|
+|T2I|Flux-dev|`poetry run inference-flux-dev --enable_vae_tiling --enable_sequential_cpu_offload`|1|768x1360|4.2min|2G|
+|T2I|Flux-schnell|`poetry run inference-flux-schnell`|1|768x1360|1s|37G|
+|T2I|Flux-schnell|`poetry run inference-flux-schnell --enable_vae_tiling --enable_sequential_cpu_offload`|1|768x1360|24s|2G|
 
 ### 4. Finetune T2V models
 #### (1) Prepare dataset
