@@ -824,6 +824,32 @@ def train_videocrafter_v2():
     exit(result.returncode)
 
 
+def train_hunyuan_t2v_lora():
+    # Set environment variables
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+    # Dependencies
+    config = "configs/007_hunyuanvideo/hunyuanvideo_t2v_diffuser_lora.yaml"  # Experiment config
+
+    # Experiment settings
+    resroot = "results/train"  # Experiment saving directory
+    expname = "hunyuanvideo_t2v_lora"  # Experiment name
+    result = subprocess.run(
+        ["python", "scripts/train.py", 
+         "-t", 
+         "--base", config, 
+         "--logdir", resroot, 
+         "--name", f"{current_time}_{expname}", 
+         "--devices", "0,1", 
+         "lightning.trainer.num_nodes=1", 
+         "--auto_resume"
+        ] + sys.argv[1:], 
+        check=False
+    )
+    exit(result.returncode)
+
+
+
 def train_wan2_1_t2v_fullft():
     # Set environment variables
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
