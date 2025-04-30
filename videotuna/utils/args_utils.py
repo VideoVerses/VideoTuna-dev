@@ -17,16 +17,7 @@ class VideoMode(Enum):
     T2V = "t2v"
 
 
-MANDATORY_INFERENCE_ARGS = ["mode", 
-                            "savedir", 
-                            "seed",
-                            "height", 
-                            "width", 
-                            "savefps",
-                            "n_samples_prompt", 
-                            "bs", 
-                            "unconditional_guidance_scale", 
-                            "ckpt_path"]
+MANDATORY_INFERENCE_ARGS = ["savedir"]
 
 
 def prepare_train_args(parser: argparse.Namespace):
