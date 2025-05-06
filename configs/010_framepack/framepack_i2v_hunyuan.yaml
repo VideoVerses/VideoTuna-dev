@@ -1,0 +1,113 @@
+flow:
+  target: videotuna.flow.framepack.HunyuanVideoPackedFlow
+  params:
+    task: "i2v-14B"                   # The task to run (choices from WAN_CONFIGS.keys())
+    ckpt_path: ./hf_download                    # The path to the checkpoint directory.
+    offload_model: true               # Whether to offload the model to CPU after each model forward.
+    ulysses_size: 1                   # The size of the ulysses parallelism in DiT.
+    ring_size: 1                      # The size of the ring attention parallelism in DiT.
+    t5_fsdp: false                    # Whether to use FSDP for T5.
+    t5_cpu: false                     # Whether to place T5 model on CPU.
+    dit_fsdp: false                   # Whether to use FSDP for DiT.
+    use_prompt_extend: false          # Whether to use prompt extend.
+    prompt_extend_method: "local_qwen" # The prompt extend method to use (choices: dashscope, local_qwen)
+    prompt_extend_model: null         # The prompt extend model to use.
+    prompt_extend_target_lang: "zh"   # The target language of prompt extend (choices: zh, en)
+    seed: 42                     # The seed to use for generating the image or video
+
+    scheduler_config: __is_first_stage__
+
+    high_vram: True
+    denoiser_config:
+      target: videotuna.models.framepack.models.hunyuan_video_packed.HunyuanVideoTransformer3DModelPacked
+      use_from_pretrained: true
+      params:
+        pretrained_model_name_or_path: lllyasviel/FramePackI2V_HY
+
+    first_stage_config:
+      target: diffusers.AutoencoderKLHunyuanVideo
+      params:
+        pretrained_model_name_or_path: hunyuanvideo-community/HunyuanVideo
+        subfolder: "vae"
+        load_dtype: fp16 # bf16 5b / fp16 2B 
+        # torch_dtype: float16 # bf16 5b / fp16 2B 
+
+
+    cond_stage_config:
+      target: transformers.LlamaModel
+      params:
+        pretrained_model_name_or_path: hunyuanvideo-community/HunyuanVideo
+        subfolder: "text_encoder"
+        torch_dtype: float16 # bf16 5b / fp16 2B 
+        # device: cuda
+
+    tokenizer_config: 
+      target: transformers.LlamaTokenizerFast
+      params:
+        pretrained_model_name_or_path: hunyuanvideo-community/HunyuanVideo
+        subfolder: "tokenizer"
+        torch_dtype: float16 # bf16 5b / fp16 2B 
+
+
+    cond_stage_2_config:
+      target: transformers.CLIPTextModel
+      params:
+        pretrained_model_name_or_path: hunyuanvideo-community/HunyuanVideo
+        subfolder: "text_encoder_2"
+        torch_dtype: float16 # bf16 5b / fp16 2B 
+    
+    tokenizer_config_2: 
+      target: transformers.CLIPTokenizer
+      params:
+        pretrained_model_name_or_path: hunyuanvideo-community/HunyuanVideo
+        subfolder: "tokenizer_2"
+    
+    feature_extractor_config:
+      target: transformers.SiglipImageProcessor
+      params:
+        pretrained_model_name_or_path: lllyasviel/flux_redux_bfl
+        subfolder: "feature_extractor"
+    
+    image_encoder_config:
+      target: transformers.SiglipVisionModel
+      params:
+        pretrained_model_name_or_path: lllyasviel/flux_redux_bfl
+        subfolder: "image_encoder"
+        torch_dtype: float16
+
+
+inference:
+  video_length_in_second: 5
+  latent_window_size: 9
+  steps: 25
+  cfg: 1.0
+  gs: 10.0
+  rs: 0.0
+  gpu_memory_preservation: 6
+  use_teacache: True
+  mp4_crf: 16
+  prompt: "a cute cartoon dinosaur is running, cartoon style"
+  input_image_path: "test-i2v-480/1.png"
+  n_prompt: ""
+  seed: 31337
+
+  mode: i2v
+  ckpt_path: ./hf_download
+  savedir: results/i2v/framepack
+  height: 480
+  width: 832
+  prompt_dir: "inputs/i2v/576x1024"
+  solver: "unipc"           
+  num_inference_steps: 40                
+  time_shift: 3.0                
+  unconditional_guidance_scale: 5.0                       
+  frames: 81
+  n_samples_prompt: 1
+  bs: 1
+  savefps: 16
+  enable_model_cpu_offload: true
+
+  # mapping:
+  #   inference.ckpt_path : flow.params.ckpt_path
+  #   inference.seed : flow.params.seed
+  #   inference.enable_model_cpu_offload : flow.params.offload_models
