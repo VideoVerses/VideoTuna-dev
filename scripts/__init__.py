@@ -45,7 +45,7 @@ def install_flash_attn():
         "conda", "install", "-c", "nvidia", "cuda-nvcc=12.1", "-y"
     ] + sys.argv[1:]
     command_install_flash_attn = [
-        "pip", "install", "flash-attn==2.7.3", "--no-build-isolation"
+        "pip", "install", "flash-attn==2.7.4.post1", "--no-build-isolation"
     ]
     result_nvcc = subprocess.run(command_install_cuda_nvcc, check=False)
     if result_nvcc.returncode != 0:

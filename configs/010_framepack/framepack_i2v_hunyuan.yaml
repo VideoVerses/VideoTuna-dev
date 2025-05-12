@@ -23,6 +23,7 @@ flow:
       use_from_pretrained: true
       params:
         pretrained_model_name_or_path: lllyasviel/FramePackI2V_HY
+        torch_dtype: ${dtype_resolver:torch.bfloat16}
 
     first_stage_config:
       target: diffusers.AutoencoderKLHunyuanVideo
@@ -79,28 +80,26 @@ flow:
 inference:
   video_length_in_second: 5
   latent_window_size: 9
-  steps: 25
-  cfg: 1.0
+  num_inference_steps: 25
+  savedir: results/i2v/framepack
+  unconditional_guidance_scale: 2.0
   gs: 10.0
   rs: 0.0
   gpu_memory_preservation: 6
   use_teacache: True
   mp4_crf: 16
   prompt: "a cute cartoon dinosaur is running, cartoon style"
-  input_image_path: "test-i2v-480/1.png"
-  n_prompt: ""
+  input_image_path: "/project/llmsvgen/yazhou/check-base/maintain/temp/VideoTuna-dev/test-i2v-480/1.png"
+  n_prompt: "not cartoon style"
   seed: 31337
 
   mode: i2v
   ckpt_path: ./hf_download
-  savedir: results/i2v/framepack
   height: 480
   width: 832
   prompt_dir: "inputs/i2v/576x1024"
-  solver: "unipc"           
-  num_inference_steps: 40                
-  time_shift: 3.0                
-  unconditional_guidance_scale: 5.0                       
+  solver: "unipc"                          
+  time_shift: 3.0                                  
   frames: 81
   n_samples_prompt: 1
   bs: 1

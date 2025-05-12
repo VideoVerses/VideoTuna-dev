@@ -224,8 +224,11 @@ def run_inference(args, gpu_num=1, rank=0, **kwargs):
     flow.eval()
 
     # 2. flow inference
+    decorated_warmup = monitor_resources(return_metrics=True)(flow.warmup)
+    metrics = decorated_warmup(inference_config) 
     decorated_inference = monitor_resources(return_metrics=True)(flow.inference)
     metrics = decorated_inference(inference_config) 
+    flow.post_inference()
 
 
 if __name__ == "__main__":

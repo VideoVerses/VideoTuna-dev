@@ -13,6 +13,8 @@ from peft import get_peft_model
 from omegaconf import OmegaConf, DictConfig
 from pytorch_lightning import Trainer
 import enum
+from xfuser.core.distributed import model_parallel_is_initialized
+from xfuser.core.distributed.parallel_state import destroy_model_parallel, destroy_distributed_environment
 
 from videotuna.base.train_base import TrainBase
 from videotuna.base.inference_base import InferenceBase
@@ -561,3 +563,9 @@ class GenerationBase(TrainBase, InferenceBase):
             logger.info(f"Make parameter contiguous in case deepseed does not allow non contigouous data")
             for param in self.parameters(): param.data = param.data.contiguous()
         self.set_trainable_components([Component.DENOISER.value])
+    
+
+    def post_inference(self):
+        if model_parallel_is_initialized():
+            destroy_model_parallel()
+        destroy_distributed_environment()

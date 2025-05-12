@@ -33,7 +33,7 @@ if torch.backends.cuda.mem_efficient_sdp_enabled():
 print("Currently enabled native sdp backends:", enabled_backends)
 
 try:
-    # raise NotImplementedError
+    #raise NotImplementedError
     from xformers.ops import memory_efficient_attention as xformers_attn_func
     print('Xformers is installed!')
 except:
@@ -50,7 +50,6 @@ except:
     flash_attn_func = None
 
 try:
-    # raise NotImplementedError
     from sageattention import sageattn_varlen, sageattn
     print('Sage Attn is installed!')
 except:
@@ -58,8 +57,7 @@ except:
     sageattn_varlen = None
     sageattn = None
 
-
-logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
+from loguru import logger
 
 
 def pad_for_3d_conv(x, kernel_size):
@@ -418,7 +416,6 @@ class HunyuanVideoTokenRefiner(nn.Module):
 
         return hidden_states
 
-
 class HunyuanVideoRotaryPosEmbed(nn.Module):
     def __init__(self, rope_dim, theta):
         super().__init__()
@@ -575,6 +572,8 @@ class HunyuanVideoSingleTransformerBlock(nn.Module):
         # 1. Input normalization
         norm_hidden_states, gate = self.norm(hidden_states, emb=temb)
         mlp_hidden_states = self.act_mlp(self.proj_mlp(norm_hidden_states))
+        # logger.info(f"single norm step!! norm_hidden_states min {norm_hidden_states.min()} max {norm_hidden_states.max()} avg {norm_hidden_states.mean()}")
+        # logger.info(f"single norm step!! mlp_hidden_states min {mlp_hidden_states.min()} max {mlp_hidden_states.max()} avg {mlp_hidden_states.mean()}")
 
         norm_hidden_states, norm_encoder_hidden_states = (
             norm_hidden_states[:, :-text_seq_length, :],
@@ -588,17 +587,22 @@ class HunyuanVideoSingleTransformerBlock(nn.Module):
             attention_mask=attention_mask,
             image_rotary_emb=image_rotary_emb,
         )
+        # logger.info(f"single att step!! attn_output min {attn_output.min()} max {attn_output.max()} avg {attn_output.mean()}")
+        # logger.info(f"single att step!! context_attn_output min {context_attn_output.min()} max {context_attn_output.max()} avg {context_attn_output.mean()}")
         attn_output = torch.cat([attn_output, context_attn_output], dim=1)
 
+        scaling_factor = 1.0
         # 3. Modulation and residual connection
         hidden_states = torch.cat([attn_output, mlp_hidden_states], dim=2)
-        hidden_states = gate * self.proj_out(hidden_states)
-        hidden_states = hidden_states + residual
+        hidden_states = gate / scaling_factor * self.proj_out(hidden_states) / scaling_factor
+        hidden_states = hidden_states + residual / scaling_factor
 
         hidden_states, encoder_hidden_states = (
             hidden_states[:, :-text_seq_length, :],
             hidden_states[:, -text_seq_length:, :],
         )
+        # logger.info(f"single hidden step!! hidden_states min {hidden_states.min()} max {hidden_states.max()} avg {hidden_states.mean()}")
+        # logger.info(f"single hidden step!! encoder_hidden_states min {encoder_hidden_states.min()} max {encoder_hidden_states.max()} avg {encoder_hidden_states.mean()}")
         return hidden_states, encoder_hidden_states
 
 
@@ -649,6 +653,8 @@ class HunyuanVideoTransformerBlock(nn.Module):
         norm_hidden_states, gate_msa, shift_mlp, scale_mlp, gate_mlp = self.norm1(hidden_states, emb=temb)
         norm_encoder_hidden_states, c_gate_msa, c_shift_mlp, c_scale_mlp, c_gate_mlp = self.norm1_context(encoder_hidden_states, emb=temb)
 
+        # logger.info(f"norm1 step!! norm_hidden_states min {norm_hidden_states.min()} max {norm_hidden_states.max()} avg {norm_hidden_states.mean()}")
+        # logger.info(f"norm1 step!! norm_encoder_hidden_states min {norm_encoder_hidden_states.min()} max {norm_encoder_hidden_states.max()} avg {norm_encoder_hidden_states.mean()}")
         # 2. Joint attention
         attn_output, context_attn_output = self.attn(
             hidden_states=norm_hidden_states,
@@ -656,6 +662,9 @@ class HunyuanVideoTransformerBlock(nn.Module):
             attention_mask=attention_mask,
             image_rotary_emb=freqs_cis,
         )
+
+        # logger.info(f"att step!! attn_output min {attn_output.min()} max {attn_output.max()} avg {attn_output.mean()}")
+        # logger.info(f"att step!! context_attn_output min {context_attn_output.min()} max {context_attn_output.max()} avg {context_attn_output.mean()}")
 
         # 3. Modulation and residual connection
         hidden_states = hidden_states + attn_output * gate_msa
@@ -667,12 +676,19 @@ class HunyuanVideoTransformerBlock(nn.Module):
         norm_hidden_states = norm_hidden_states * (1 + scale_mlp) + shift_mlp
         norm_encoder_hidden_states = norm_encoder_hidden_states * (1 + c_scale_mlp) + c_shift_mlp
 
+        # logger.info(f"norm2 step!! norm_hidden_states min {norm_hidden_states.min()} max {norm_hidden_states.max()} avg {norm_hidden_states.mean()}")
+        # logger.info(f"norm2 step!! norm_encoder_hidden_states min {norm_encoder_hidden_states.min()} max {norm_encoder_hidden_states.max()} avg {norm_encoder_hidden_states.mean()}")
         # 4. Feed-forward
         ff_output = self.ff(norm_hidden_states)
         context_ff_output = self.ff_context(norm_encoder_hidden_states)
+        # logger.info(f"ff pre step!! ff_output min {ff_output.min()} max {ff_output.max()} avg {ff_output.mean()}")
+        # logger.info(f"ff pre step!! context_ff_output min {context_ff_output.min()} max {context_ff_output.max()} avg {context_ff_output.mean()}")
 
         hidden_states = hidden_states + gate_mlp * ff_output
         encoder_hidden_states = encoder_hidden_states + c_gate_mlp * context_ff_output
+
+        # logger.info(f"ff step!! hidden_states min {hidden_states.min()} max {hidden_states.max()} avg {hidden_states.mean()}")
+        # logger.info(f"ff step!! encoder_hidden_states min {encoder_hidden_states.min()} max {encoder_hidden_states.max()} avg {encoder_hidden_states.mean()}")
 
         return hidden_states, encoder_hidden_states
 
@@ -842,18 +858,18 @@ class HunyuanVideoTransformer3DModelPacked(ModelMixin, ConfigMixin, PeftAdapterM
     ):
         hidden_states = self.gradient_checkpointing_method(self.x_embedder.proj, latents)
         B, C, T, H, W = hidden_states.shape
-        print(f'hidden_states.shape before flatten = {hidden_states.shape}') # [1, 3072, 9, 40, 38]
+        #print(f'hidden_states.shape before flatten = {hidden_states.shape}') # [1, 3072, 9, 40, 38]
 
         if latent_indices is None:
             latent_indices = torch.arange(0, T).unsqueeze(0).expand(B, -1)
 
         hidden_states = hidden_states.flatten(2).transpose(1, 2)
-        print(f'hidden_states.shape after flatten = {hidden_states.shape}') # [1, 13680, 3072]
+        #print(f'hidden_states.shape after flatten = {hidden_states.shape}') # [1, 13680, 3072]
         rope_freqs = self.rope(frame_indices=latent_indices, height=H, width=W, device=hidden_states.device)
         rope_freqs = rope_freqs.flatten(2).transpose(1, 2)
 
         if clean_latents is not None and clean_latent_indices is not None:
-            print(f'clean_latents.shape = {clean_latents.shape}') # [1, 16, 2, 80, 76]
+            #print(f'clean_latents.shape = {clean_latents.shape}') # [1, 16, 2, 80, 76]
             clean_latents = clean_latents.to(hidden_states)
             clean_latents = self.gradient_checkpointing_method(self.clean_x_embedder.proj, clean_latents)
             clean_latents = clean_latents.flatten(2).transpose(1, 2)
@@ -865,7 +881,7 @@ class HunyuanVideoTransformer3DModelPacked(ModelMixin, ConfigMixin, PeftAdapterM
             rope_freqs = torch.cat([clean_latent_rope_freqs, rope_freqs], dim=1)
 
         if clean_latents_2x is not None and clean_latent_2x_indices is not None:
-            print(f'clean_latents_2x.shape = {clean_latents_2x.shape}') # [1, 16, 2, 80, 76]
+            #print(f'clean_latents_2x.shape = {clean_latents_2x.shape}') # [1, 16, 2, 80, 76]
             clean_latents_2x = clean_latents_2x.to(hidden_states)
             clean_latents_2x = pad_for_3d_conv(clean_latents_2x, (2, 4, 4))
             clean_latents_2x = self.gradient_checkpointing_method(self.clean_x_embedder.proj_2x, clean_latents_2x)
@@ -880,7 +896,7 @@ class HunyuanVideoTransformer3DModelPacked(ModelMixin, ConfigMixin, PeftAdapterM
             rope_freqs = torch.cat([clean_latent_2x_rope_freqs, rope_freqs], dim=1)
 
         if clean_latents_4x is not None and clean_latent_4x_indices is not None:
-            print(f'clean_latents_4x.shape = {clean_latents_4x.shape}') # [1, 16, 16, 80, 76]
+            #print(f'clean_latents_4x.shape = {clean_latents_4x.shape}') # [1, 16, 16, 80, 76]
             clean_latents_4x = clean_latents_4x.to(hidden_states)
             clean_latents_4x = pad_for_3d_conv(clean_latents_4x, (4, 8, 8))
             clean_latents_4x = self.gradient_checkpointing_method(self.clean_x_embedder.proj_4x, clean_latents_4x)
@@ -893,7 +909,7 @@ class HunyuanVideoTransformer3DModelPacked(ModelMixin, ConfigMixin, PeftAdapterM
 
             hidden_states = torch.cat([clean_latents_4x, hidden_states], dim=1)
             rope_freqs = torch.cat([clean_latent_4x_rope_freqs, rope_freqs], dim=1)
-            print(f'hidden_states.shape after cat = {hidden_states.shape}') # [1, 13680 + 16 * 16, 3072]
+            #print(f'hidden_states.shape after cat = {hidden_states.shape}') # [1, 13680 + 16 * 16, 3072]
 
         return hidden_states, rope_freqs
 
@@ -936,7 +952,7 @@ class HunyuanVideoTransformer3DModelPacked(ModelMixin, ConfigMixin, PeftAdapterM
             if batch_size == 1:
                 # When batch size is 1, we do not need any masks or var-len funcs since cropping is mathematically same to what we want
                 # If they are not same, then their impls are wrong. Ours are always the correct one.
-                text_len = encoder_attention_mask.sum().item()
+                text_len = encoder_attention_mask.sum()#.item()
                 encoder_hidden_states = encoder_hidden_states[:, :text_len]
                 attention_mask = None, None, None, None
             else:
@@ -974,7 +990,8 @@ class HunyuanVideoTransformer3DModelPacked(ModelMixin, ConfigMixin, PeftAdapterM
                 hidden_states = hidden_states + self.previous_residual
             else:
                 ori_hidden_states = hidden_states.clone()
-
+                
+                #logger.info(f"transformer_blocks start!!! hidden_states min {hidden_states.min()} max {hidden_states.max()} avg {hidden_states.mean()}")
                 for block_id, block in enumerate(self.transformer_blocks):
                     hidden_states, encoder_hidden_states = self.gradient_checkpointing_method(
                         block,
@@ -984,6 +1001,8 @@ class HunyuanVideoTransformer3DModelPacked(ModelMixin, ConfigMixin, PeftAdapterM
                         attention_mask,
                         rope_freqs
                     )
+                    # logger.info(f"transformer_blocks {block_id} hidden_states min {hidden_states.min()} max {hidden_states.max()} avg {hidden_states.mean()}")
+                    # logger.info(f"transformer_blocks {block_id} encoder_hidden_states min {hidden_states.min()} max {hidden_states.max()} avg {hidden_states.mean()}")
 
                 for block_id, block in enumerate(self.single_transformer_blocks):
                     hidden_states, encoder_hidden_states = self.gradient_checkpointing_method(
@@ -994,6 +1013,8 @@ class HunyuanVideoTransformer3DModelPacked(ModelMixin, ConfigMixin, PeftAdapterM
                         attention_mask,
                         rope_freqs
                     )
+                    # logger.info(f"single_transformer_blocks {block_id} hidden_states min {hidden_states.min()} max {hidden_states.max()} avg {hidden_states.mean()}")
+                    # logger.info(f"single_transformer_blocks {block_id} encoder_hidden_states min {hidden_states.min()} max {hidden_states.max()} avg {hidden_states.mean()}")
 
                 self.previous_residual = hidden_states - ori_hidden_states
         else:
@@ -1020,8 +1041,8 @@ class HunyuanVideoTransformer3DModelPacked(ModelMixin, ConfigMixin, PeftAdapterM
         hidden_states = self.gradient_checkpointing_method(self.norm_out, hidden_states, temb)
 
         hidden_states = hidden_states[:, -original_context_length:, :]
-        print(f'original_context_length = {original_context_length}') # 13680
-        print(f'hidden_states.shape after norm_out = {hidden_states.shape}') # [1, 13680, 3072]
+        #print(f'original_context_length = {original_context_length}') # 13680
+        #print(f'hidden_states.shape after norm_out = {hidden_states.shape}') # [1, 13680, 3072]
 
         if self.high_quality_fp32_output_for_inference:
             hidden_states = hidden_states.to(dtype=torch.float32)

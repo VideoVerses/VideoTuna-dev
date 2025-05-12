@@ -1,5 +1,5 @@
 import torch
-
+from xfuser.core.distributed.parallel_state import get_classifier_free_guidance_rank, get_classifier_free_guidance_world_size, get_cfg_group
 
 def append_dims(x, target_dims):
     return x[(...,) + (None,) * (target_dims - x.ndim)]
@@ -34,12 +34,20 @@ def fm_wrapper(transformer, t_scale=1000.0):
         else:
             hidden_states = torch.cat([x, concat_latent.to(x)], dim=1)
 
-        pred_positive = transformer(hidden_states=hidden_states, timestep=timestep, return_dict=False, **extra_args['positive'])[0].float()
-
-        if cfg_scale == 1.0:
-            pred_negative = torch.zeros_like(pred_positive)
+        if torch.distributed.is_initialized() and get_classifier_free_guidance_world_size() == 2 and cfg_scale != 1.0:
+            if get_classifier_free_guidance_rank() == 0:
+                pred_out = transformer(hidden_states=hidden_states, timestep=timestep, return_dict=False, **extra_args['positive'])[0].float()
+            else:
+                pred_out = transformer(hidden_states=hidden_states, timestep=timestep, return_dict=False, **extra_args['negative'])[0].float()
+            pred_positive, pred_negative = get_cfg_group().all_gather(
+                pred_out, separate_tensors=True
+            )
         else:
-            pred_negative = transformer(hidden_states=hidden_states, timestep=timestep, return_dict=False, **extra_args['negative'])[0].float()
+            pred_positive = transformer(hidden_states=hidden_states, timestep=timestep, return_dict=False, **extra_args['positive'])[0].float()
+            if cfg_scale == 1.0:
+                pred_negative = torch.zeros_like(pred_positive)
+            else:
+                pred_negative = transformer(hidden_states=hidden_states, timestep=timestep, return_dict=False, **extra_args['negative'])[0].float()
 
         pred_cfg = pred_negative + cfg_scale * (pred_positive - pred_negative)
         pred = rescale_noise_cfg(pred_cfg, pred_positive, guidance_rescale=cfg_rescale)

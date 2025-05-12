@@ -3,6 +3,7 @@ from loguru import logger
 import random
 import os
 import math
+from xfuser.core.distributed import init_distributed_environment, initialize_model_parallel
 import torch.distributed as dist
 from typing import Any, Dict, List, Optional, Union
 from pathlib import Path
@@ -32,28 +33,7 @@ from videotuna.models.framepack.bucket_tools import find_nearest_bucket
 import traceback
 
 # wan specific 
-import videotuna.models.wan.wan as wan
-from videotuna.models.wan.wan.configs import WAN_CONFIGS, SIZE_CONFIGS, MAX_AREA_CONFIGS, SUPPORTED_SIZES
-from videotuna.models.wan.wan.utils.prompt_extend import DashScopePromptExpander, QwenPromptExpander
-from videotuna.models.wan.wan.utils.utils import cache_video, cache_image, str2bool
-
-EXAMPLE_PROMPT = {
-    "t2v-1.3B": {
-        "prompt": "Two anthropomorphic cats in comfy boxing gear and bright gloves fight intensely on a spotlighted stage.",
-    },
-    "t2v-14B": {
-        "prompt": "Two anthropomorphic cats in comfy boxing gear and bright gloves fight intensely on a spotlighted stage.",
-    },
-    "t2i-14B": {
-        "prompt": "一个朴素端庄的美人",
-    },
-    "i2v-14B": {
-        "prompt":
-            "Summer beach vacation style, a white cat wearing sunglasses sits on a surfboard. The fluffy-furred feline gazes directly at the camera with a relaxed expression. Blurred beach scenery forms the background featuring crystal-clear waters, distant green hills, and a blue sky dotted with white clouds. The cat assumes a naturally relaxed posture, as if savoring the sea breeze and warm sunlight. A close-up shot highlights the feline's intricate details and the refreshing atmosphere of the seaside.",
-        "image":
-            "inputs/i2v/576x1024/i2v_input.JPG",
-    },
-}
+from videotuna.utils.quantization_utils import apply_fp8_monkey_patch, optimize_state_dict_with_fp8
 
 class HunyuanVideoPackedFlow(GenerationBase):
     """
@@ -74,25 +54,29 @@ class HunyuanVideoPackedFlow(GenerationBase):
         lora_config: Optional[Dict[str, Any]] = None,
         feature_extractor_config: Optional[Dict[str, Any]] = None,
         image_encoder_config: Optional[Dict[str, Any]] = None,
-        high_vram: bool = False,           
-        
+        high_vram: bool = False,     
+        torch_compile: bool = False,
+        fp8_scale : bool = False,  
+        cfg_parallel : bool = True,    
         # below are probably not needed
         # task: str = "t2v-14B",            
         ckpt_path: Optional[str] = None,    
-        offload_model: Optional[bool] = None, 
-        ulysses_size: int = 1,             
-        ring_size: int = 1,               
-        t5_fsdp: bool = False,           
-        t5_cpu: bool = False,             
-        dit_fsdp: bool = False,            
-        use_prompt_extend: bool = False,   
-        prompt_extend_method: str = "local_qwen",  
-        prompt_extend_model: Optional[str] = None,  
-        prompt_extend_target_lang: str = "zh",    
+        offload_model: Optional[bool] = None,        
         seed: int = -1,
         *args, **kwargs
     ):
         logger.info("HunyuanVideoPackedFlow flow: starting init")
+        if cfg_parallel:
+            dist.init_process_group("nccl")
+            init_distributed_environment(
+                rank=dist.get_rank(), 
+                world_size=dist.get_world_size()
+            )
+            
+            initialize_model_parallel(
+                classifier_free_guidance_degree=2
+            )
+            torch.cuda.set_device(dist.get_rank())
         assert ckpt_path is not None, "Please specify the checkpoint directory."
         super().__init__(
             first_stage_config=first_stage_config,
@@ -116,24 +100,20 @@ class HunyuanVideoPackedFlow(GenerationBase):
         self.image_encoder.requires_grad_(False)
         self.tokenizer = instantiate_from_config(tokenizer_config)
         self.tokenizer_2 = instantiate_from_config(tokenizer_config_2)
+        if fp8_scale:
+            state_dict = self.denoiser.state_dict()
+            state_dict = self.fp8_optimization(self.denoiser, state_dict, device, True, use_scaled_mm=False)
+            info = self.denoiser.load_state_dict(state_dict, strict=True, assign=True)
+            logger.info(f"Loaded FP8 optimized weights: {info}")
         logger.info("HunyuanVideoPackedFlow flow: class init finished")
         self.ckpt_path = ckpt_path
-        self.use_prompt_extend = use_prompt_extend
-        self.prompt_extend_model = prompt_extend_model
-        self.prompt_extend_target_lang = prompt_extend_target_lang
         self.seed = seed
         self.offload_model = offload_model
-        self.ulysses_size = ulysses_size
-        self.ring_size = ring_size
         self.high_vram = high_vram
-        
+        self.torch_compile = torch_compile
+        self.fp8_scale = fp8_scale
+        self.cfg_parallel = cfg_parallel
 
-    def _validate_args(self, args):        
-        # Size reassign and check
-        args.size = f"{args.width}*{args.height}"
-        logger.info(f"setting size = width*height == {args.size}")
-        assert args.size in SUPPORTED_SIZES[
-            self.task], f"Unsupport size {args.size} for task {self.task}, supported sizes are: {', '.join(SUPPORTED_SIZES[self.task])}"
 
     def generate_timestamp(self):
         now = datetime.now()
@@ -143,12 +123,25 @@ class HunyuanVideoPackedFlow(GenerationBase):
         return f"{timestamp}_{milliseconds}_{random_number}"
     
     @torch.no_grad()
+    def warmup(self, args:DictConfig):
+        if not self.torch_compile:
+            logger.info("Skipping warmup since no compile")
+            return
+        steps = args.num_inference_steps
+        args.num_inference_steps = 1
+        args.warmup = True
+        self.inference(args)
+        args.num_inference_steps = steps
+        args.warmup = False
+        logger.info("warmup finished")
+
+    @torch.no_grad()
     def inference(self, args: DictConfig): 
         seed = args.seed
         video_length_in_second = args.video_length_in_second
         latent_window_size = args.latent_window_size
-        steps = args.steps
-        cfg = args.cfg
+        steps = args.num_inference_steps
+        cfg = args.unconditional_guidance_scale
         gs = args.gs
         rs = args.rs
         gpu_memory_preservation = args.gpu_memory_preservation
@@ -157,21 +150,11 @@ class HunyuanVideoPackedFlow(GenerationBase):
         prompt = args.prompt
         n_prompt = args.n_prompt
         input_image_path = args.input_image_path
-        outputs_folder = './outputs/'
+        warmup = args.get('warmup', False)
+        outputs_folder = args.savedir
         os.makedirs(outputs_folder, exist_ok=True)
         
-        self.denoiser.to(dtype=torch.bfloat16)
-        self.first_stage_model.to(dtype=torch.float16)
-        self.image_encoder.to(dtype=torch.float16)
-        self.cond_stage_model.to(dtype=torch.float16)
-        self.cond_stage_2_model.to(dtype=torch.float16)
-
-        self.denoiser.cuda()
-        self.cond_stage_model.cuda()
-        self.cond_stage_2_model.cuda()
-        self.image_encoder.cuda()
-        self.first_stage_model.cuda()
-
+        denoiser_dtype = torch.bfloat16
 
         input_image = np.array(Image.open(input_image_path))
 
@@ -237,11 +220,11 @@ class HunyuanVideoPackedFlow(GenerationBase):
             image_encoder_last_hidden_state = image_encoder_output.last_hidden_state
 
             # Dtype
-            llama_vec = llama_vec.to(self.denoiser.dtype)
-            llama_vec_n = llama_vec_n.to(self.denoiser.dtype)
-            clip_l_pooler = clip_l_pooler.to(self.denoiser.dtype)
-            clip_l_pooler_n = clip_l_pooler_n.to(self.denoiser.dtype)
-            image_encoder_last_hidden_state = image_encoder_last_hidden_state.to(self.denoiser.dtype)
+            llama_vec = llama_vec.to(denoiser_dtype)
+            llama_vec_n = llama_vec_n.to(denoiser_dtype)
+            clip_l_pooler = clip_l_pooler.to(denoiser_dtype)
+            clip_l_pooler_n = clip_l_pooler_n.to(denoiser_dtype)
+            image_encoder_last_hidden_state = image_encoder_last_hidden_state.to(denoiser_dtype)
 
             # Sampling
             print("Start sampling...")
@@ -328,8 +311,8 @@ class HunyuanVideoPackedFlow(GenerationBase):
                     negative_prompt_embeds=llama_vec_n,
                     negative_prompt_embeds_mask=llama_attention_mask_n,
                     negative_prompt_poolers=clip_l_pooler_n,
-                    device=gpu,
-                    dtype=torch.bfloat16,
+                    device=torch.device(f'cuda:{torch.cuda.current_device()}'),
+                    dtype=denoiser_dtype,
                     image_embeddings=image_encoder_last_hidden_state,
                     latent_indices=cur_latent_indices,
                     clean_latents=clean_latents,
@@ -370,13 +353,14 @@ class HunyuanVideoPackedFlow(GenerationBase):
                     unload_complete_models()
 
                 # save the generated video
-                output_filename = os.path.join(outputs_folder, f'{job_id}_{num_generated_latent_frames}.mp4')
-                final_output_filename = output_filename
+                if not warmup and (not dist.is_initialized() or dist.get_rank() == 0):
+                    output_filename = os.path.join(outputs_folder, f'{job_id}_{num_generated_latent_frames}.mp4')
+                    final_output_filename = output_filename
 
-                print(f'history_rgbs.shape = {history_rgbs.shape}') # [1, 3, 145, 640, 608]
-                save_bcthw_as_mp4(history_rgbs, output_filename, fps=30, crf=mp4_crf)
+                    print(f'history_rgbs.shape = {history_rgbs.shape}') # [1, 3, 145, 640, 608]
+                    save_bcthw_as_mp4(history_rgbs, output_filename, fps=30, crf=mp4_crf)
 
-                print(f'Decoded. Current latent shape {valid_history_latents.shape}; pixel shape {history_rgbs.shape}')
+                    print(f'Decoded. Current latent shape {valid_history_latents.shape}; pixel shape {history_rgbs.shape}')
 
                 if is_last_section:
                     break
@@ -399,32 +383,25 @@ class HunyuanVideoPackedFlow(GenerationBase):
                         denoiser_ckpt_path: Optional[Union[str, Path]] = None,
                         lora_ckpt_path: Optional[Union[str, Path]] = None,
                         ignore_missing_ckpts: bool = False):
-        # if "t2v" in self.task or "t2i" in self.task:
-        #     self.wan_t2v.load_weight()
-        #     #this is only used to load trained denoiser_ckpt_path, 
-        #     #so we set ignore missing ckpts avoid duplicate loading
-        #     self.load_denoiser(ckpt_path, denoiser_ckpt_path, True)
-        # else:
-        #     self.wan_i2v.load_weight()
-        #     self.load_denoiser(ckpt_path, denoiser_ckpt_path, True)
         pass
     
     def enable_vram_management(self):
-        # if "t2v" in self.task or "t2i" in self.task:
-        #     self.wan_t2v.enable_vram_management()
-        # else:
-        #     self.wan_i2v.enable_vram_management()
-        pass
+        self.first_stage_model.to(dtype=torch.float16)
+        self.image_encoder.to(dtype=torch.float16)
+        self.cond_stage_model.to(dtype=torch.float16)
+        self.cond_stage_2_model.to(dtype=torch.float16)
+
+        self.cond_stage_model.cuda()
+        self.cond_stage_2_model.cuda()
+        self.image_encoder.cuda()
+        self.first_stage_model.cuda()
+        self.denoiser.cuda()
+        if self.torch_compile:
+            torch._dynamo.config.cache_size_limit = 64
+            self.denoiser = torch.compile(self.denoiser, mode="max-autotune-no-cudagraphs")
+        
     
     def training_step(self, batch, batch_idx):
-        #self.first_stage_model.disable_cache()
-        # if "t2v" in self.task or "t2i" in self.task:
-        #     loss = self.wan_t2v.training_step(batch, batch_idx, self.first_stage_key, self.cond_stage_key)
-        # else:
-        #     loss = self.wan_i2v.training_step(batch, batch_idx, self.first_stage_key, self.cond_stage_key)
-        # self.log("train_loss", loss, prog_bar=True, on_step=True)
-        # return loss
-        # pass
         print('batch keys:', batch.keys())
         exit()
         
@@ -432,3 +409,30 @@ class HunyuanVideoPackedFlow(GenerationBase):
     @torch.no_grad()
     def log_images(self, batch, **kwargs):
         pass
+
+    def fp8_optimization(
+        self, model, state_dict: dict[str, torch.Tensor], device: torch.device, move_to_device: bool, use_scaled_mm: bool = False
+    ) -> dict[str, torch.Tensor]:  # Return type hint added
+        """
+        Optimize the model state_dict with fp8.
+
+        Args:
+            state_dict (dict[str, torch.Tensor]):
+                The state_dict of the model.
+            device (torch.device):
+                The device to calculate the weight.
+            move_to_device (bool):
+                Whether to move the weight to the device after optimization.
+            use_scaled_mm (bool):
+                Whether to use scaled matrix multiplication for FP8.
+        """
+        TARGET_KEYS = ["transformer_blocks", "single_transformer_blocks"]
+        EXCLUDE_KEYS = ["norm"]  # Exclude norm layers (e.g., LayerNorm, RMSNorm) from FP8
+
+        # inplace optimization
+        state_dict = optimize_state_dict_with_fp8(state_dict, device, TARGET_KEYS, EXCLUDE_KEYS, move_to_device=move_to_device)
+
+        # apply monkey patching
+        apply_fp8_monkey_patch(model, state_dict, use_scaled_mm=use_scaled_mm)
+
+        return state_dict
