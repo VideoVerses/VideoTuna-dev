@@ -4,10 +4,10 @@ import torch
 
 # The dir contains your deepspeed checkpoints. The dir should contains "lattest" file. 
 # One example file path is: results/train/xxxxxxx_hunyuanvideo_t2v_lora/checkpoints/epoch=161.ckpt
-checkpoint_dir = "path/to/your/checkpoint_dir"
+checkpoint_dir = "results/train/train_framepack_i2v_hunyuan_lora_20250511235315/checkpoints/flow/flow-047-000001950.ckpt"
 
 # Path to save your converted checkpoint. The checkpoint can be directly loaded with "torch.load" function
-save_path = "path/to/save/your/checkpoint_dir"
+save_path = "results/train/train_framepack_i2v_hunyuan_lora_20250511235315/checkpoints/only_trained_model/denoiser-047-000001950-converted.ckpt"
 
 
 state_dict = get_fp32_state_dict_from_zero_checkpoint(

@@ -110,6 +110,8 @@ class FlowMatchUniPC:
 
     def sample(self, x, sigmas, callback=None, disable_pbar=False):
         order = min(3, len(sigmas) - 2)
+        print(f'order = {order}')
+        # exit()
         model_prev_list, t_prev_list = [], []
         for i in trange(len(sigmas) - 1, disable=disable_pbar):
             vec_t = sigmas[i].expand(x.shape[0])

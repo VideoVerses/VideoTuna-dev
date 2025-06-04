@@ -30,6 +30,7 @@ from transformers import SiglipImageProcessor, SiglipVisionModel
 from videotuna.models.framepack.clip_vision import hf_clip_vision_encode
 from videotuna.models.framepack.bucket_tools import find_nearest_bucket
 import traceback
+from videotuna.schedulers.flow_matching import FlowMatchScheduler
 
 # wan specific 
 import videotuna.models.wan.wan as wan
@@ -75,7 +76,7 @@ class HunyuanVideoPackedFlow(GenerationBase):
         feature_extractor_config: Optional[Dict[str, Any]] = None,
         image_encoder_config: Optional[Dict[str, Any]] = None,
         high_vram: bool = False,           
-        
+        latent_window_size: int = 9,
         # below are probably not needed
         # task: str = "t2v-14B",            
         ckpt_path: Optional[str] = None,    
@@ -100,19 +101,21 @@ class HunyuanVideoPackedFlow(GenerationBase):
             denoiser_config=denoiser_config,
             scheduler_config=scheduler_config,
             cond_stage_2_config=cond_stage_2_config,
-            # lora_config=lora_config,
+            lora_config=lora_config,
             trainable_components=[]
         )
         rank = int(os.getenv("RANK", 0))
         world_size = int(os.getenv("WORLD_SIZE", 1))
         local_rank = int(os.getenv("LOCAL_RANK", 0))
-        device = local_rank
+        device_id = local_rank
+        self.device_id = device_id
+        device = torch.device(f"cuda:{self.device_id}")
 
         self.feature_extractor = instantiate_from_config(feature_extractor_config)
         self.image_encoder = instantiate_from_config(image_encoder_config)
         self.image_encoder.eval()
         
-        self.image_encoder.to("cuda") # TODO: check if this is correct
+        self.image_encoder.to(device) # TODO: check if this is correct
         self.image_encoder.requires_grad_(False)
         self.tokenizer = instantiate_from_config(tokenizer_config)
         self.tokenizer_2 = instantiate_from_config(tokenizer_config_2)
@@ -126,7 +129,9 @@ class HunyuanVideoPackedFlow(GenerationBase):
         self.ulysses_size = ulysses_size
         self.ring_size = ring_size
         self.high_vram = high_vram
-        
+        self.latent_window_size = latent_window_size
+
+        # exit()
 
     def _validate_args(self, args):        
         # Size reassign and check
@@ -157,6 +162,8 @@ class HunyuanVideoPackedFlow(GenerationBase):
         prompt = args.prompt
         n_prompt = args.n_prompt
         input_image_path = args.input_image_path
+        height = args.height
+        width = args.width
         outputs_folder = './outputs/'
         os.makedirs(outputs_folder, exist_ok=True)
         
@@ -165,6 +172,9 @@ class HunyuanVideoPackedFlow(GenerationBase):
         self.image_encoder.to(dtype=torch.float16)
         self.cond_stage_model.to(dtype=torch.float16)
         self.cond_stage_2_model.to(dtype=torch.float16)
+
+        print(f'self.denoiser.dtype = {self.denoiser.dtype}')
+        # exit()
 
         self.denoiser.cuda()
         self.cond_stage_model.cuda()
@@ -210,7 +220,7 @@ class HunyuanVideoPackedFlow(GenerationBase):
             print("Image processing...")
 
             H, W, C = input_image.shape
-            height, width = find_nearest_bucket(H, W, resolution=640)
+            # height, width = find_nearest_bucket(H, W, resolution=640) # NOTE load from args
             input_image_np = resize_and_center_crop(input_image, target_width=width, target_height=height)
 
             # Image.fromarray(input_image_np).save(os.path.join(outputs_folder, f'{job_id}.png'))
@@ -294,7 +304,10 @@ class HunyuanVideoPackedFlow(GenerationBase):
                 clean_latents_post, clean_latents_2x, clean_latents_4x = history_latents[:, :, :1 + 2 + 16, :, :].split([1, 2, 16], dim=2)
                 clean_latents = torch.cat([clean_latents_pre, clean_latents_post], dim=2)
 
+                print(f'clean_latents = {clean_latents.max()}, {clean_latents.min()}')
+
                 # exit()
+                
                 
                 if not self.high_vram:
                     unload_complete_models()
@@ -330,6 +343,7 @@ class HunyuanVideoPackedFlow(GenerationBase):
                     negative_prompt_poolers=clip_l_pooler_n,
                     device=gpu,
                     dtype=torch.bfloat16,
+                    # dtype=torch.float32,
                     image_embeddings=image_encoder_last_hidden_state,
                     latent_indices=cur_latent_indices,
                     clean_latents=clean_latents,
@@ -341,6 +355,7 @@ class HunyuanVideoPackedFlow(GenerationBase):
                     callback=callback,
                 )
                 print(f'generated_latents.shape = {generated_latents.shape}') # [1, 16, 9, 80, 76]
+                print(f'generated_latents = {generated_latents.max()}, {generated_latents.min()}')
 
                 if is_last_section:
                     generated_latents = torch.cat([start_latent.to(generated_latents), generated_latents], dim=2)
@@ -381,6 +396,7 @@ class HunyuanVideoPackedFlow(GenerationBase):
                 if is_last_section:
                     break
                     
+            
             return final_output_filename
         
         except Exception as e:
@@ -392,6 +408,39 @@ class HunyuanVideoPackedFlow(GenerationBase):
                 )
             
             return None
+
+    # def load_weight(self):
+        # self.cond_stage_model.load_weight()
+        # self.cond_stage_2_model.load_weight()
+        # self.first_stage_model.load_weight()
+        # self.feature_extractor.load_weight()
+        # self.image_encoder.load_weight()
+        #denoiser use from_pretrained, no need load again
+
+        # self.cond_stage_model.load_state_dict(torch.load(self.ckpt_path, map_location='cpu'))
+        # self.cond_stage_2_model.load_state_dict(torch.load(self.ckpt_path, map_location='cpu'))
+        # self.first_stage_model.load_state_dict(torch.load(self.ckpt_path, map_location='cpu'))
+        # self.feature_extractor.load_state_dict(torch.load(self.ckpt_path, map_location='cpu'))
+        # self.image_encoder.load_state_dict(torch.load(self.ckpt_path, map_location='cpu'))
+        # self.load_first_stage(self.ckpt_path, ignore_missing_ckpts=True)
+        # self.load_cond_stage(self.ckpt_path, ignore_missing_ckpts=True)
+        # self.load_cond_stage_2(self.ckpt_path, ignore_missing_ckpts=True)
+
+        # if dist.is_initialized():
+        #     dist.barrier()
+        # if self.dit_fsdp:
+        #     self.model = self.shard_fn(self.model)
+        # else:
+        #     if not self.init_on_cpu:
+        #         self.model = self.model.to(self.device)
+        # pass
+    
+    def load_denoiser(self, ckpt_path: str = None, denoiser_ckpt_path: str = None, ignore_missing_ckpts: bool = False):
+        # return super().load_denoiser(ckpt_path, denoiser_ckpt_path, ignore_missing_ckpts)
+        ckpt_path = os.path.join(ckpt_path, denoiser_ckpt_path)
+        # self.denoiser.load_state_dict(torch.load(ckpt_path, map_location='cpu'))     
+        # self.denoiser = self.load_model(self.denoiser, ckpt_path, strict=False)
+        self.denoiser = self.load_model(self.denoiser, ckpt_path)
 
 
     def from_pretrained(self,
@@ -407,26 +456,138 @@ class HunyuanVideoPackedFlow(GenerationBase):
         # else:
         #     self.wan_i2v.load_weight()
         #     self.load_denoiser(ckpt_path, denoiser_ckpt_path, True)
+        # pass
+        # self.load_weight()
+        # self.load_denoiser(ckpt_path, denoiser_ckpt_path, True)
         pass
+
     
     def enable_vram_management(self):
-        # if "t2v" in self.task or "t2i" in self.task:
-        #     self.wan_t2v.enable_vram_management()
-        # else:
-        #     self.wan_i2v.enable_vram_management()
         pass
     
+    def vae_encode_video(self, videos):
+        latents = []
+        for idx in range(videos.shape[2]):
+            latents.append(vae_encode(videos[:, :, idx:idx+1, :, :], self.first_stage_model))
+        return torch.cat(latents, dim=2)
+    
     def training_step(self, batch, batch_idx):
-        #self.first_stage_model.disable_cache()
-        # if "t2v" in self.task or "t2i" in self.task:
-        #     loss = self.wan_t2v.training_step(batch, batch_idx, self.first_stage_key, self.cond_stage_key)
-        # else:
-        #     loss = self.wan_i2v.training_step(batch, batch_idx, self.first_stage_key, self.cond_stage_key)
-        # self.log("train_loss", loss, prog_bar=True, on_step=True)
-        # return loss
-        # pass
-        print('batch keys:', batch.keys())
-        exit()
+        # 1. get first frame
+        videos = batch[self.first_stage_key]
+        total_frames = videos.shape[2]
+        first_frame = videos[:, :, 0:1, :, :]
+
+        # TODO 
+        model_offload = False
+        device = "cuda"
+        dtype = torch.bfloat16
+        cfg = 1
+        n_prompt = ""
+        device = torch.device(f"cuda:{self.device_id}")
+
+        with torch.no_grad():
+            if model_offload:
+                self.vae.model.to(device)
+                latents = torch.stack(self.vae.encode(videos)).to(dtype=dtype, device=device).detach()
+                videos[:, :, 1:, :, :] = 0
+                y = torch.stack(self.vae.encode(videos)).to(dtype=dtype, device=device).detach()
+                self.vae.model.to('cpu')
+                self.text_encoder.model.to(device)
+                text_cond_embed = self.text_encoder(batch[self.cond_stage_key], device)
+                self.text_encoder.model.to('cpu')
+                self.clip.model.to(device)
+                clip_context = self.clip.visual(first_frame)
+                self.clip.model.to('cpu')
+            else:
+                # TODO check 
+                latents = self.vae_encode_video(videos).to(dtype=dtype, device=device).detach()
+
+                videos[:, :, 1:, :, :] = 0
+                y = self.vae_encode_video(videos).to(dtype=dtype, device=device).detach()
+
+                start_latent = vae_encode(first_frame, self.first_stage_model)
+                # TODO not elegant
+                first_frame_np = first_frame[0, :, 0, :, :].to(torch.float32).cpu().numpy().transpose(1, 2, 0).astype(np.uint8)
+                image_encoder_output = hf_clip_vision_encode(first_frame_np, self.feature_extractor, self.image_encoder)
+                image_encoder_last_hidden_state = image_encoder_output.last_hidden_state
+
+                # text encoding
+                llama_vec, clip_l_pooler = encode_prompt_conds(batch[self.cond_stage_key][0], 
+                                                               self.cond_stage_model, self.cond_stage_2_model, 
+                                                               self.tokenizer, self.tokenizer_2)
+
+                if cfg == 1:
+                    llama_vec_n, clip_l_pooler_n = torch.zeros_like(llama_vec), torch.zeros_like(clip_l_pooler)
+                else:
+                    llama_vec_n, clip_l_pooler_n = encode_prompt_conds(n_prompt, 
+                                                                      self.cond_stage_model, self.cond_stage_2_model, 
+                                                                      self.tokenizer, self.tokenizer_2)
+
+                llama_vec, llama_attention_mask = crop_or_pad_yield_mask(llama_vec, length=512)
+                llama_vec_n, llama_attention_mask_n = crop_or_pad_yield_mask(llama_vec_n, length=512)
+
+        # exit()
+        ## scheduler TODO this should be moved to init 
+        self.scheduler : FlowMatchScheduler = FlowMatchScheduler(shift=5, sigma_min=0.0, extra_one_step=True)
+        self.scheduler.set_timesteps(1000, training=True)
+
+        ## noise
+        # 29 frames in total; 0th: input frame; 1-9: noisy frames; 10: clean frame; 11-12: 2x frames; 13-28: 4x frames
+        num_frames = self.latent_window_size * 4 - 3
+        num_noisy_frames = (num_frames + 3) // 4
+        noisy_latent_indices = list(range(total_frames))[1:num_noisy_frames+1]
+        b, c, f, h, w = latents.shape
+        noise = torch.randn_like(latents[:, :, :num_noisy_frames, :, :])
+        timestep_ids = torch.randint(0, self.scheduler.num_train_timesteps, (b,))
+        timesteps = self.scheduler.timesteps[timestep_ids].to(dtype=dtype, device=device)
+        # timesteps = self.scheduler.timesteps[timestep_ids].to(dtype=dtype)
+        noisy_latents = self.scheduler.add_noise(latents[:, :, 1:num_noisy_frames+1, :, :], noise, timesteps).to(dtype=dtype, device=device)
+        # noisy_latents = self.scheduler.add_noise(latents[:, :, 1:num_noisy_frames+1, :, :], noise, timesteps).to(dtype=dtype)
+        training_target = noise.to(device) - latents[:, :, 1:num_noisy_frames+1, :, :]
+        # training_target = noise - latents[:, :, 1:num_noisy_frames+1, :, :]
+
+
+        # split indices for different latent sections
+        indices = torch.arange(0, sum([1, 0, self.latent_window_size, 1, 2, 16])).unsqueeze(0)
+        splits = [1, 0, self.latent_window_size, 1, 2, 16]
+        clean_latent_indices_pre, blank_indices, cur_latent_indices, \
+            clean_latent_indices_post, clean_latent_2x_indices, \
+            clean_latent_4x_indices = indices.split(splits, dim=1)
+
+        # get condition latents: clean_latents, clean_latent_2x, clean_latent_4x
+        clean_latents_pre = start_latent.to(noisy_latents)
+        # post: 0th frame, 2x: 1-2 frame, 4x: 3-18 frame
+        clean_latents_post = latents[:, :, 10:11, :, :]
+        clean_latents_2x = latents[:, :, 11:13, :, :]
+        clean_latents_4x = latents[:, :, 13:29, :, :]
+        clean_latents = torch.cat([clean_latents_pre, clean_latents_post], dim=2)
+        clean_latent_indices = torch.cat([clean_latent_indices_pre, clean_latent_indices_post], dim=1)
+
+        distilled_guidance_scale = 10
+        distilled_guidance = torch.tensor([distilled_guidance_scale * 1000.0] * b).to(device=device, dtype=dtype)
+        # distilled_guidance = torch.tensor([distilled_guidance_scale * 1000.0] * b).to(dtype=dtype)
+
+        noise_pred = self.denoiser(noisy_latents, timesteps, 
+                                encoder_hidden_states=llama_vec, 
+                                encoder_attention_mask=llama_attention_mask,
+                                pooled_projections=clip_l_pooler,
+                                guidance=distilled_guidance,
+                                latent_indices=cur_latent_indices,
+                                clean_latents=clean_latents,
+                                clean_latent_indices=clean_latent_indices,
+                                clean_latents_2x=clean_latents_2x,
+                                clean_latent_2x_indices=clean_latent_2x_indices,
+                                clean_latents_4x=clean_latents_4x,
+                                clean_latent_4x_indices=clean_latent_4x_indices,
+                                image_embeddings=image_encoder_last_hidden_state,
+                                return_dict=False, # TODO 
+                                )
+        # print(f'noise_pred.shape = {noise_pred.shape}') # [1, 16, 9, 80, 76]
+        loss = torch.nn.functional.mse_loss(torch.stack(noise_pred).float(), training_target.float())
+        loss = loss * self.scheduler.training_weight(timesteps).to(device=device)
+        # loss = loss * self.scheduler.training_weight(timesteps)
+        return loss
+        
         
     
     @torch.no_grad()

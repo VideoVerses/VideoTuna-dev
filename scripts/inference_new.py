@@ -21,6 +21,8 @@ from videotuna.utils.common_utils import instantiate_from_config
 from videotuna.base.generation_base import GenerationBase
 from videotuna.utils.common_utils import monitor_resources
 
+os.environ['HF_HOME'] = os.path.abspath(os.path.realpath(os.path.join(os.path.dirname(__file__), './hf_download')))
+
 def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -217,6 +219,7 @@ def run_inference(args, gpu_num=1, rank=0, **kwargs):
     # 1.1 init class on meta
     # 1.2 load weight to cpu
     # 1.3 vram management (default to cuda)
+    print(inference_config.ckpt_path)
     flow_config = config.pop("flow", OmegaConf.create(flags={"allow_objects": True}))
     flow : GenerationBase = instantiate_from_config(flow_config, resolve=True)
     flow.from_pretrained(inference_config.ckpt_path, inference_config.trained_ckpt, inference_config.lorackpt)

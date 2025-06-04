@@ -24,6 +24,8 @@ precision_to_dtype = {
     "bfloat16": torch.bfloat16,
 }
 
+# temp fix for hf_download TODO: remove this later
+os.environ['HF_HOME'] = os.path.abspath(os.path.realpath(os.path.join(os.path.dirname(__file__), './hf_download')))
 
 def get_resize_crop_region_for_grid(src, target):
     """
