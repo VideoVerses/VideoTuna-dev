@@ -393,7 +393,6 @@ class HunyuanVideoPackedFlow(GenerationBase):
         output_dir = "res"
         transition_duration = 2
         mp4_crf = 16
-        openai_api_key = None
         
         os.makedirs(output_dir, exist_ok=True)
         
