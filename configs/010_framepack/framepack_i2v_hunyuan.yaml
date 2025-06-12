@@ -88,9 +88,9 @@ inference:
   gpu_memory_preservation: 6
   use_teacache: True
   mp4_crf: 16
-  prompt: "a cute cartoon dinosaur is running, cartoon style"
+  prompt: "A seamless transition between two images, smooth and natural camera movement.[0s-1s]: first image [1s]: camera follows the motion rightward. The background gradually shifts.[2s]: second image. Seamless transition with gentle camera pan"
   input_image_path: "/project/llmsvgen/yazhou/check-base/maintain/temp/VideoTuna-dev/test-i2v-480/1.png"
-  n_prompt: "not cartoon style"
+  n_prompt: ""
   seed: 31337
 
   mode: i2v
@@ -105,6 +105,7 @@ inference:
   bs: 1
   savefps: 16
   enable_model_cpu_offload: true
+  batch_transition: true
 
   # mapping:
   #   inference.ckpt_path : flow.params.ckpt_path
