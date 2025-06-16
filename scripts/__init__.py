@@ -45,7 +45,7 @@ def install_flash_attn():
         "conda", "install", "-c", "nvidia", "cuda-nvcc=12.1", "-y"
     ] + sys.argv[1:]
     command_install_flash_attn = [
-        "pip", "install", "flash-attn==2.7.3", "--no-build-isolation"
+        "pip", "install", "flash-attn==2.7.4.post1", "--no-build-isolation"
     ]
     result_nvcc = subprocess.run(command_install_cuda_nvcc, check=False)
     if result_nvcc.returncode != 0:
@@ -842,6 +842,110 @@ def train_hunyuan_t2v_lora():
          "--name", f"{current_time}_{expname}", 
          "--devices", "0,1", 
          "lightning.trainer.num_nodes=1", 
+         "--auto_resume"
+        ] + sys.argv[1:], 
+        check=False
+    )
+    exit(result.returncode)
+
+
+
+def train_wan2_1_t2v_fullft():
+    # Set environment variables
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+    # Dependencies
+    ckpt = "checkpoints/wan/Wan2.1-T2V-14B" 
+    config = "configs/008_wanvideo/wan2_1_t2v_14B_fullft.yaml" 
+
+    # Experiment saving directory and parameters
+    resroot = "results/train"  # root directory for saving multiple experiments
+    expname = "train_wanvideo_t2v_fullft"  # experiment name
+    result = subprocess.run(
+        ["python", "scripts/train_new.py", 
+         "-t", 
+         "--ckpt", ckpt, 
+         "--base", config, 
+         "--logdir", resroot, 
+         "--name", f"{expname}_{current_time}", 
+         "--devices", "0,", 
+         "--auto_resume"
+        ] + sys.argv[1:], 
+        check=False
+    )
+    exit(result.returncode)
+
+
+def train_wan2_1_t2v_lora():
+    # Set environment variables
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+    # Dependencies
+    ckpt = "checkpoints/wan/Wan2.1-T2V-14B" 
+    config = "configs/008_wanvideo/wan2_1_t2v_14B_lora.yaml" 
+
+    # Experiment saving directory and parameters
+    resroot = "results/train"  # root directory for saving multiple experiments
+    expname = "train_wanvideo_t2v_lora"  # experiment name
+    result = subprocess.run(
+        ["python", "scripts/train_new.py", 
+         "-t", 
+         "--ckpt", ckpt, 
+         "--base", config, 
+         "--logdir", resroot, 
+         "--name", f"{expname}_{current_time}", 
+         "--devices", "0,", 
+         "--auto_resume"
+        ] + sys.argv[1:], 
+        check=False
+    )
+    exit(result.returncode)
+
+
+def train_wan2_1_i2v_fullft():
+    # Set environment variables
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+    # Dependencies
+    ckpt = "checkpoints/wan/Wan2.1-I2V-14B-480P" 
+    config = "configs/008_wanvideo/wan2_1_i2v_14B_480P_fullft.yaml" 
+
+    # Experiment saving directory and parameters
+    resroot = "results/train"  # root directory for saving multiple experiments
+    expname = "train_wanvideo_i2v_fullft"  # experiment name
+    result = subprocess.run(
+        ["python", "scripts/train_new.py", 
+         "-t", 
+         "--ckpt", ckpt, 
+         "--base", config, 
+         "--logdir", resroot, 
+         "--name", f"{expname}_{current_time}", 
+         "--devices", "0,", 
+         "--auto_resume"
+        ] + sys.argv[1:], 
+        check=False
+    )
+    exit(result.returncode)
+
+def train_wan2_1_i2v_lora():
+    # Set environment variables
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+    # Dependencies
+    ckpt = "checkpoints/wan/Wan2.1-I2V-14B-480P" 
+    config = "configs/008_wanvideo/wan2_1_i2v_14B_480P_lora.yaml" 
+
+    # Experiment saving directory and parameters
+    resroot = "results/train"  # root directory for saving multiple experiments
+    expname = "train_wanvideo_i2v_lora"  # experiment name
+    result = subprocess.run(
+        ["python", "scripts/train_new.py", 
+         "-t", 
+         "--ckpt", ckpt, 
+         "--base", config, 
+         "--logdir", resroot, 
+         "--name", f"{expname}_{current_time}", 
+         "--devices", "0,", 
          "--auto_resume"
         ] + sys.argv[1:], 
         check=False
