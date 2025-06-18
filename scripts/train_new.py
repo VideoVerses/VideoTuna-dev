@@ -127,7 +127,7 @@ if __name__ == "__main__":
         logger.info(f"<Training in {trainer.strategy.__class__.__name__} Mode>")
         if trainer.strategy.__class__.__name__  == "DeepSpeedStrategy":
             logger.info("deepspeed needs autocast")
-            with torch.cuda.amp.autocast():
+            with torch.cuda.amp.autocast(dtype=torch.bfloat16):
                 trainer.fit(flow, data, ckpt_path=train_config.resume_ckpt)
         else:
             trainer.fit(flow, data, ckpt_path=train_config.resume_ckpt)

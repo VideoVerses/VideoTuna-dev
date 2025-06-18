@@ -309,6 +309,7 @@ class GenerationBase(TrainBase, InferenceBase):
                          ckpt_path: str,
                          ignore_missing_ckpts: bool = False):
         path = os.path.join(ckpt_path, self.first_stage_model_path)
+        print(f"Loading first_stage_model from {path}")
         if os.path.exists(path):
             self.first_stage_model = self.load_model(self.first_stage_model, path)
             print_green("Successfully loaded first_stage_model from checkpoint.")
@@ -452,12 +453,18 @@ class GenerationBase(TrainBase, InferenceBase):
 
         ckpt_path = Path(ckpt_path)
         if ckpt_path.exists():
+            print(f"loading model from {ckpt_path}")
             ckpt = torch.load(ckpt_path, map_location=torch.device('cpu'))
             if 'state_dict' in ckpt:
                 state_dict = ckpt['state_dict']
             else:
                 state_dict = ckpt
+            
+                    
             missing_keys, unexpected_keys = model.load_state_dict(state_dict, strict=strict)
+            print(f"missing_keys: {len(missing_keys)}")
+            print(f"unexpected_keys: {len(unexpected_keys)}")
+            
             all_keys = [i for i, _ in model.named_parameters()]
             num_updated_keys = len(all_keys) - len(missing_keys)
             num_unexpected_keys = len(unexpected_keys)
@@ -536,6 +543,9 @@ class GenerationBase(TrainBase, InferenceBase):
         logger.info(f"trainer_kwargs: {trainer_kwargs}")
         from pytorch_lightning.profilers import PyTorchProfiler
         profiler = PyTorchProfiler(emit_nvtx=True)
+        # print('trainer_config: ', trainer_config, 'trainer_kwargs: ', trainer_kwargs)
+        # trainer = Trainer(**trainer_config, **trainer_kwargs,  profiler=profiler)
+        print('type(trainer_config): ', type(trainer_config), 'type(trainer_kwargs): ', type(trainer_kwargs))
         trainer = Trainer(**trainer_config, **trainer_kwargs,  profiler=profiler)
         self.trainer = trainer
 

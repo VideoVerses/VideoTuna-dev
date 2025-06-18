@@ -168,7 +168,7 @@ class VideoTunaModelCheckpoint(pl.callbacks.ModelCheckpoint):
         new_dirpath_list = original_dirpath_list[:-1] + ['flow']
         new_dirpath = '/'.join(new_dirpath_list)
         if not os.path.exists(new_dirpath):
-            os.makedirs(new_dirpath)
+            os.makedirs(new_dirpath, exist_ok=True)
 
         new_filepath = os.path.join(new_dirpath, original_dirpath_list[-1])
         trainer.save_checkpoint(new_filepath, self.save_weights_only)

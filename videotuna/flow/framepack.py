@@ -282,31 +282,16 @@ class HunyuanVideoPackedFlow(GenerationBase):
                 # 27, 18, 9, 0
                 latent_padding_size = latent_section_index * latent_window_size
 
-                print(f'latent_padding_size = {latent_padding_size}, is_last_section = {is_last_section}') # 27
-
-                # first frame, 27, 9, 1, 2, 16 ??? 
+                # first frame, 27, 9, 1, 2, 16 
                 indices = torch.arange(0, sum([1, latent_padding_size, latent_window_size, 1, 2, 16])).unsqueeze(0)
-                print(f'indices = {indices}') # [0,1,2,...,55]
                 clean_latent_indices_pre, blank_indices, cur_latent_indices, clean_latent_indices_post, clean_latent_2x_indices, clean_latent_4x_indices = indices.split([1, latent_padding_size, latent_window_size, 1, 2, 16], dim=1)
-                print(f'clean_latent_indices_pre = {clean_latent_indices_pre}') # [0]
-                print(f'blank_indices = {blank_indices}') # [1,2,...,27]
-                print(f'cur_latent_indices = {cur_latent_indices}') # [28,29,...,36]
-                print(f'clean_latent_indices_post = {clean_latent_indices_post}') # [37]
-                print(f'clean_latent_2x_indices = {clean_latent_2x_indices}') # [38,39]
-                print(f'clean_latent_4x_indices = {clean_latent_4x_indices}') # [40,41,...,55]
                 clean_latent_indices = torch.cat([clean_latent_indices_pre, clean_latent_indices_post], dim=1)
-                print(f'clean_latent_indices = {clean_latent_indices}') # [0,37]
-                # exit()
 
                 # start_latent: the latent of the input image
                 clean_latents_pre = start_latent.to(history_latents)
                 # post: 0th frame, 2x: 1-2 frame, 4x: 3-18 frame
                 clean_latents_post, clean_latents_2x, clean_latents_4x = history_latents[:, :, :1 + 2 + 16, :, :].split([1, 2, 16], dim=2)
                 clean_latents = torch.cat([clean_latents_pre, clean_latents_post], dim=2)
-
-                print(f'clean_latents = {clean_latents.max()}, {clean_latents.min()}')
-
-                # exit()
                 
                 
                 if not self.high_vram:
@@ -409,37 +394,12 @@ class HunyuanVideoPackedFlow(GenerationBase):
             
             return None
 
-    # def load_weight(self):
-        # self.cond_stage_model.load_weight()
-        # self.cond_stage_2_model.load_weight()
-        # self.first_stage_model.load_weight()
-        # self.feature_extractor.load_weight()
-        # self.image_encoder.load_weight()
-        #denoiser use from_pretrained, no need load again
-
-        # self.cond_stage_model.load_state_dict(torch.load(self.ckpt_path, map_location='cpu'))
-        # self.cond_stage_2_model.load_state_dict(torch.load(self.ckpt_path, map_location='cpu'))
-        # self.first_stage_model.load_state_dict(torch.load(self.ckpt_path, map_location='cpu'))
-        # self.feature_extractor.load_state_dict(torch.load(self.ckpt_path, map_location='cpu'))
-        # self.image_encoder.load_state_dict(torch.load(self.ckpt_path, map_location='cpu'))
-        # self.load_first_stage(self.ckpt_path, ignore_missing_ckpts=True)
-        # self.load_cond_stage(self.ckpt_path, ignore_missing_ckpts=True)
-        # self.load_cond_stage_2(self.ckpt_path, ignore_missing_ckpts=True)
-
-        # if dist.is_initialized():
-        #     dist.barrier()
-        # if self.dit_fsdp:
-        #     self.model = self.shard_fn(self.model)
-        # else:
-        #     if not self.init_on_cpu:
-        #         self.model = self.model.to(self.device)
-        # pass
     
     def load_denoiser(self, ckpt_path: str = None, denoiser_ckpt_path: str = None, ignore_missing_ckpts: bool = False):
         # return super().load_denoiser(ckpt_path, denoiser_ckpt_path, ignore_missing_ckpts)
         ckpt_path = os.path.join(ckpt_path, denoiser_ckpt_path)
-        # self.denoiser.load_state_dict(torch.load(ckpt_path, map_location='cpu'))     
-        # self.denoiser = self.load_model(self.denoiser, ckpt_path, strict=False)
+        print(f'ckpt_path = {ckpt_path}')
+
         self.denoiser = self.load_model(self.denoiser, ckpt_path)
 
 
@@ -448,16 +408,7 @@ class HunyuanVideoPackedFlow(GenerationBase):
                         denoiser_ckpt_path: Optional[Union[str, Path]] = None,
                         lora_ckpt_path: Optional[Union[str, Path]] = None,
                         ignore_missing_ckpts: bool = False):
-        # if "t2v" in self.task or "t2i" in self.task:
-        #     self.wan_t2v.load_weight()
-        #     #this is only used to load trained denoiser_ckpt_path, 
-        #     #so we set ignore missing ckpts avoid duplicate loading
-        #     self.load_denoiser(ckpt_path, denoiser_ckpt_path, True)
-        # else:
-        #     self.wan_i2v.load_weight()
-        #     self.load_denoiser(ckpt_path, denoiser_ckpt_path, True)
-        # pass
-        # self.load_weight()
+
         # self.load_denoiser(ckpt_path, denoiser_ckpt_path, True)
         pass
 
@@ -582,9 +533,9 @@ class HunyuanVideoPackedFlow(GenerationBase):
                                 image_embeddings=image_encoder_last_hidden_state,
                                 return_dict=False, # TODO 
                                 )
-        # print(f'noise_pred.shape = {noise_pred.shape}') # [1, 16, 9, 80, 76]
         loss = torch.nn.functional.mse_loss(torch.stack(noise_pred).float(), training_target.float())
         loss = loss * self.scheduler.training_weight(timesteps).to(device=device)
+        print(f'loss = {loss}')
         # loss = loss * self.scheduler.training_weight(timesteps)
         return loss
         
