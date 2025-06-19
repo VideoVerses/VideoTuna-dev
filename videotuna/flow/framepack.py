@@ -142,6 +142,10 @@ class HunyuanVideoPackedFlow(GenerationBase):
         if hasattr(args, 'batch_transition') and args.batch_transition:
             return self._batch_transition_inference(args)
         
+        # 如果是单独转场生成模式
+        if hasattr(args, 'single_transition') and args.single_transition:
+            return self._single_transition_inference(args)
+        
         mode = args.mode
         seed = args.seed
         video_length_in_second = args.video_length_in_second
@@ -174,6 +178,12 @@ class HunyuanVideoPackedFlow(GenerationBase):
         job_id = self.generate_timestamp()
         
         print("Starting video generation...")
+
+        if not self.high_vram:
+            DynamicSwapInstaller.install_model(self.denoiser, device=device)
+            DynamicSwapInstaller.install_model(self.cond_stage_model, device=device)
+            self.first_stage_model.enable_slicing()
+            self.first_stage_model.enable_tiling()
 
         try:
             # Clean GPU
@@ -264,11 +274,17 @@ class HunyuanVideoPackedFlow(GenerationBase):
             if num_latent_sections > 4:
                 print(f'num_latent_sections = {num_latent_sections}')
                 latent_paddings = [3] + [2] * (num_latent_sections - 3) + [1, 0]
+            else:
+                latent_paddings = list(latent_paddings)
+            
+            total_sections = len(latent_paddings)
+            current_section_num = 0
 
             final_output_filename = None
             
             for latent_section_index in latent_paddings:
-                print(f'current latent_section_index = {latent_section_index}')
+                current_section_num += 1
+                print(f'current latent_section_index = {latent_section_index} (Section {current_section_num}/{total_sections})')
                 is_last_section = latent_section_index == 0
                 latent_padding_size = latent_section_index * latent_window_size
 
@@ -301,8 +317,31 @@ class HunyuanVideoPackedFlow(GenerationBase):
 
                 def callback(d):
                     current_step = d['i'] + 1
-                    print(f"Sampling step {current_step}/{steps}")
+                    print(f"Sampling step {current_step}/{steps} (Section {current_section_num}/{total_sections})")
                     return
+                
+                # 使用args中提供的callback，如果有的话
+                if hasattr(args, 'callback') and args.callback is not None:
+                    external_callback = args.callback
+                    def enhanced_callback(d):
+                        # 保持原有的打印输出
+                        current_step = d['i'] + 1
+                        print(f"Sampling step {current_step}/{steps} (Section {current_section_num}/{total_sections})")
+                        
+                        # 增强数据，包含section信息
+                        enhanced_d = d.copy()
+                        enhanced_d['section_index'] = latent_section_index
+                        enhanced_d['current_section'] = current_section_num
+                        enhanced_d['total_sections'] = total_sections
+                        enhanced_d['is_last_section'] = is_last_section
+                        
+                        # 调用外部callback
+                        try:
+                            external_callback(enhanced_d)
+                        except Exception as e:
+                            print(f"External callback error: {e}")
+                    
+                    callback = enhanced_callback
 
                 generated_latents = sample_hunyuan(
                     transformer=self.denoiser,
@@ -639,18 +678,78 @@ class HunyuanVideoPackedFlow(GenerationBase):
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         return frame
         
-    def generate_transition_frame(self, start_frame: np.ndarray, end_frame: np.ndarray, openai_api_key: Optional[str] = None) -> np.ndarray:
+    def generate_transition_frame(self, start_frame: np.ndarray, end_frame: np.ndarray, openai_api_key: Optional[str] = None, style_name: Optional[str] = None) -> np.ndarray:
         """
-        Generate a transition frame between two frames using OpenAI API (GPT-Image-1).
+        Generate a transition frame between two frames using either OpenAI API or style-based methods.
         
         Args:
             start_frame: The starting frame.
             end_frame: The ending frame.
             openai_api_key: OpenAI API key. If None, will try to get it from environment.
+            style_name: Name of the transition style to use. If None, uses OpenAI API or random style.
             
         Returns:
             The generated transition frame as a numpy array.
         """
+        # 定义过渡样式
+        transition_styles = [
+            {
+                'name': 'straight_diagonal',
+                'description': '斜对角线分界，形成从左上到右下的自然过渡',
+                'curve_function': lambda x, y, w, h: x < (w * y / h)
+            },
+            {
+                'name': 'wavy_horizontal',
+                'description': '水平波浪分界，模仿海浪一样的过渡',
+                'curve_function': lambda x, y, w, h: x < (w * 0.5 + w * 0.2 * np.sin(np.pi * y / h))
+            },
+            {
+                'name': 'rounded_curve',
+                'description': '圆弧形遮罩，形成自然曲面过渡',
+                'curve_function': lambda x, y, w, h: (x - w/2)**2 + (y - h/2)**2 < (w/2)**2
+            },
+            {
+                'name': 'center_radial',
+                'description': '从图像中心向四周发散过渡，模拟镜头移动',
+                'curve_function': lambda x, y, w, h: np.sqrt((x - w/2)**2 + (y - h/2)**2) < (w/2 * 0.8)
+            },
+            {
+                'name': 'vertical_stripes',
+                'description': '竖条带状交错混合左右两张图像',
+                'curve_function': lambda x, y, w, h: (x // 20) % 2 == 0
+            },
+            {
+                'name': 'horizontal_stripes',
+                'description': '水平条纹交错混合',
+                'curve_function': lambda x, y, w, h: (y // 20) % 2 == 0
+            },
+            {
+                'name': 'right_triangle',
+                'description': '右下三角混合区域',
+                'curve_function': lambda x, y, w, h: x + y < w
+            },
+            {
+                'name': 'checkerboard',
+                'description': '棋盘格混合模式',
+                'curve_function': lambda x, y, w, h: ((x // 20) + (y // 20)) % 2 == 0
+            },
+            {
+                'name': 'sinusoidal_diag',
+                'description': '正弦曲线沿对角线摆动分界',
+                'curve_function': lambda x, y, w, h: x < (w * y / h + w * 0.2 * np.sin(np.pi * y / h))
+            },
+            {
+                'name': 'random_noise_blend',
+                'description': '随机点状混合，看起来像胶片颗粒',
+                'curve_function': lambda x, y, w, h: random.randint(0, 1) == 1
+            }
+        ]
+        
+        # 如果指定了样式名称，使用样式生成
+        if style_name:
+            return self._generate_style_transition_frame(start_frame, end_frame, style_name, transition_styles)
+        
+        # 尝试使用OpenAI API
         try:
             from openai import OpenAI
             import tempfile
@@ -660,9 +759,12 @@ class HunyuanVideoPackedFlow(GenerationBase):
             # Get API key from environment if not provided
             api_key = openai_api_key or os.environ.get("OPENAI_API_KEY")
             if not api_key:
-                logger.error("OpenAI API key not provided. Cannot generate transition frame.")
-                # Return a simple blend of the two frames as a fallback
-                return (start_frame.astype(np.float32) * 0.5 + end_frame.astype(np.float32) * 0.5).astype(np.uint8)
+                logger.info("OpenAI API key not provided. Using style-based transition as fallback.")
+                # 随机选择一个过渡样式
+                import random
+                style = random.choice(transition_styles)
+                logger.info(f"Using transition style: {style['name']} - {style['description']}")
+                return self._generate_style_transition_frame(start_frame, end_frame, style['name'], transition_styles)
             
             # Initialize client
             client = OpenAI(api_key=api_key)
@@ -730,9 +832,12 @@ class HunyuanVideoPackedFlow(GenerationBase):
                     
                 except Exception as e:
                     logger.error(f"OpenAI Image Edit API error: {str(e)}")
-                    # Fallback to blending
-                    logger.info("Falling back to simple frame blending")
-                    return (start_frame.astype(np.float32) * 0.5 + end_frame.astype(np.float32) * 0.5).astype(np.uint8)
+                    # Fallback to style-based transition
+                    logger.info("Falling back to style-based transition")
+                    import random
+                    style = random.choice(transition_styles)
+                    logger.info(f"Using transition style: {style['name']} - {style['description']}")
+                    return self._generate_style_transition_frame(start_frame, end_frame, style['name'], transition_styles)
             
             finally:
                 # Clean up temporary files
@@ -740,10 +845,245 @@ class HunyuanVideoPackedFlow(GenerationBase):
                 os.remove(end_file_path)
                 
         except ImportError:
-            logger.error("OpenAI package not installed. Cannot generate transition frame.")
-            # Return a simple blend of the two frames as a fallback
-            return (start_frame.astype(np.float32) * 0.5 + end_frame.astype(np.float32) * 0.5).astype(np.uint8)
+            logger.error("OpenAI package not installed. Using style-based transition as fallback.")
+            # 随机选择一个过渡样式
+            import random
+            style = random.choice(transition_styles)
+            logger.info(f"Using transition style: {style['name']} - {style['description']}")
+            return self._generate_style_transition_frame(start_frame, end_frame, style['name'], transition_styles)
+    
+    def _generate_style_transition_frame(self, start_frame: np.ndarray, end_frame: np.ndarray, style_name: str, transition_styles: list) -> np.ndarray:
+        """
+        Generate a transition frame using style-based blending methods.
+        
+        Args:
+            start_frame: The starting frame as numpy array.
+            end_frame: The ending frame as numpy array.
+            style_name: Name of the transition style to use.
+            transition_styles: List of available transition styles.
             
+        Returns:
+            The generated transition frame as a numpy array.
+        """
+        try:
+            from scipy.ndimage import gaussian_filter
+            import random
+            
+            # 确保两个图像大小相同
+            if start_frame.shape != end_frame.shape:
+                # 调整end_frame到start_frame的大小
+                end_img = Image.fromarray(end_frame)
+                end_img = end_img.resize((start_frame.shape[1], start_frame.shape[0]))
+                end_frame = np.array(end_img)
+            
+            # 转换为浮点数用于混合
+            arr1 = start_frame.astype(np.float32)
+            arr2 = end_frame.astype(np.float32)
+            
+            height, width = arr1.shape[:2]
+            
+            # 查找样式
+            style = next((s for s in transition_styles if s['name'] == style_name), None)
+            if not style:
+                logger.warning(f"Style {style_name} not found, using wavy_horizontal as default")
+                style = next(s for s in transition_styles if s['name'] == 'wavy_horizontal')
+            
+            # 构建遮罩
+            mask = np.zeros((height, width), dtype=np.float32)
+            for y in range(height):
+                for x in range(width):
+                    if style['curve_function'](x, y, width, height):
+                        mask[y, x] = 1.0
+            
+            # 使用高斯模糊创建平滑过渡
+            mask = gaussian_filter(mask, sigma=15)  # 较大的sigma创建更柔和的过渡
+            
+            # 添加通道维度
+            if len(arr1.shape) == 3:  # 彩色图像
+                mask = np.stack([mask] * arr1.shape[2], axis=-1)
+            
+            # 混合图像
+            blended = arr1 * mask + arr2 * (1 - mask)
+            blended = np.clip(blended, 0, 255).astype(np.uint8)
+            
+            logger.info(f"Generated transition frame using {style['name']} style")
+            return blended
+            
+        except Exception as e:
+            logger.error(f"Failed to generate style transition frame: {e}")
+            # 回退到简单平均混合
+            arr1 = start_frame.astype(np.float32)
+            arr2 = end_frame.astype(np.float32)
+            blended = (arr1 * 0.5 + arr2 * 0.5).astype(np.uint8)
+            logger.info("Using fallback simple blend for transition frame")
+            return blended
+    
+    def _single_transition_inference(self, args: DictConfig):
+        """
+        单独转场视频生成的推理方法，生成中间帧然后合并两段视频
+        
+        Args:
+            args: 配置参数，包含：
+                - input_image_path: 开始图片路径
+                - end_image_path: 结束图片路径
+                - prompt: 提示词
+                - savedir: 输出目录
+                - video_length_in_second: 视频时长
+                - style_name: 过渡样式名称（可选）
+                - 其他framepack参数
+        """
+        try:
+            import tempfile
+            import uuid
+            import random
+            import copy
+            
+            # 获取参数
+            input_image_path = args.input_image_path
+            end_image_path = args.end_image_path
+            prompt = args.get('prompt', 'A seamless transition between two images, smooth and natural camera movement.')
+            output_dir = args.savedir
+            transition_duration = args.get('video_length_in_second', 2.0)
+            style_name = args.get('style_name', None)
+            
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # 读取开始和结束图片
+            start_frame = np.array(Image.open(input_image_path))
+            end_frame = np.array(Image.open(end_image_path))
+            
+            # 生成中间帧
+            logger.info(f"Generating transition frame for single transition...")
+            transition_frame = self.generate_transition_frame(start_frame, end_frame, style_name=style_name)
+            
+            # 保存中间帧
+            transition_frame_path = os.path.join(output_dir, "transition_frame.png")
+            Image.fromarray(transition_frame).save(transition_frame_path)
+            
+            # 如果有回调函数，通知保存了中间帧
+            callback = args.get('callback', None)
+            if callback:
+                try:
+                    callback({
+                        'type': 'intermediate_frame_saved',
+                        'path': transition_frame_path,
+                        'message': '中间过渡帧已生成'
+                    })
+                except Exception as e:
+                    logger.warning(f"Callback error for intermediate frame: {e}")
+            
+            # 生成第一段视频（开始帧 -> 中间帧）
+            logger.info("Generating first transition segment...")
+            
+            with tempfile.TemporaryDirectory() as temp_dir:
+                first_input_path = os.path.join(temp_dir, "first_input.png")
+                first_end_path = os.path.join(temp_dir, "first_end.png")
+                
+                # 保存图像
+                Image.fromarray(start_frame).save(first_input_path)
+                Image.fromarray(transition_frame).save(first_end_path)
+                
+                # 深拷贝原始配置并修改必要参数
+                first_args = copy.deepcopy(args)
+                first_args.mode = "transition"
+                first_args.video_length_in_second = transition_duration / 2
+                first_args.input_image_path = first_input_path
+                first_args.end_image_path = first_end_path
+                first_args.frames = int((transition_duration / 2) * args.get("fps", 30))
+                # 移除single_transition标志，避免递归调用
+                if hasattr(first_args, 'single_transition'):
+                    delattr(first_args, 'single_transition')
+                
+                # 设置第一段的进度回调
+                original_callback = args.get('callback', None)
+                if original_callback:
+                    def first_segment_callback(d):
+                        # 增强回调数据，指示这是第1/2段
+                        enhanced_d = d.copy() if isinstance(d, dict) else {'i': d if isinstance(d, int) else 0}
+                        enhanced_d['current_section'] = 1
+                        enhanced_d['total_sections'] = 2
+                        enhanced_d['is_last_section'] = False
+                        enhanced_d['section_index'] = 0
+                        try:
+                            original_callback(enhanced_d)
+                        except Exception as e:
+                            logger.warning(f"First segment callback error: {e}")
+                    first_args.callback = first_segment_callback
+                
+                # 生成第一段视频
+                first_result = self.inference(first_args)
+                
+                if not first_result or not os.path.exists(first_result):
+                    raise Exception("Failed to generate first transition segment")
+                
+                first_transition_path = os.path.join(output_dir, "first_transition.mp4")
+                if first_result != first_transition_path:
+                    import shutil
+                    shutil.move(first_result, first_transition_path)
+                
+            # 生成第二段视频（中间帧 -> 结束帧）
+            logger.info("Generating second transition segment...")
+            
+            with tempfile.TemporaryDirectory() as temp_dir:
+                second_input_path = os.path.join(temp_dir, "second_input.png")
+                second_end_path = os.path.join(temp_dir, "second_end.png")
+                
+                # 保存图像
+                Image.fromarray(transition_frame).save(second_input_path)
+                Image.fromarray(end_frame).save(second_end_path)
+                
+                # 深拷贝原始配置并修改必要参数
+                second_args = copy.deepcopy(args)
+                second_args.mode = "transition"
+                second_args.video_length_in_second = transition_duration / 2
+                second_args.input_image_path = second_input_path
+                second_args.end_image_path = second_end_path
+                second_args.frames = int((transition_duration / 2) * args.get("fps", 30))
+                # 移除single_transition标志，避免递归调用
+                if hasattr(second_args, 'single_transition'):
+                    delattr(second_args, 'single_transition')
+                
+                # 设置第二段的进度回调
+                if original_callback:
+                    def second_segment_callback(d):
+                        # 增强回调数据，指示这是第2/2段
+                        enhanced_d = d.copy() if isinstance(d, dict) else {'i': d if isinstance(d, int) else 0}
+                        enhanced_d['current_section'] = 2
+                        enhanced_d['total_sections'] = 2
+                        enhanced_d['is_last_section'] = True
+                        enhanced_d['section_index'] = 1
+                        try:
+                            original_callback(enhanced_d)
+                        except Exception as e:
+                            logger.warning(f"Second segment callback error: {e}")
+                    second_args.callback = second_segment_callback
+                
+                # 生成第二段视频
+                second_result = self.inference(second_args)
+                
+                if not second_result or not os.path.exists(second_result):
+                    raise Exception("Failed to generate second transition segment")
+                
+                second_transition_path = os.path.join(output_dir, "second_transition.mp4")
+                if second_result != second_transition_path:
+                    import shutil
+                    shutil.move(second_result, second_transition_path)
+            
+            # 合并两段视频
+            logger.info("Merging transition segments...")
+            final_video_path = os.path.join(output_dir, f"single_transition_{uuid.uuid4().hex[:8]}.mp4")
+            merged_path = self.merge_videos([first_transition_path, second_transition_path], final_video_path, args.get("mp4_crf", 16))
+            
+            if not merged_path or not os.path.exists(merged_path):
+                raise Exception("Failed to merge transition segments")
+            
+            logger.info(f"Single transition generation completed: {merged_path}")
+            return merged_path
+            
+        except Exception as e:
+            logger.error(f"Single transition inference failed: {str(e)}")
+            raise e
+
     def merge_videos(self, video_paths: List[str], output_path: str, mp4_crf: int = 10) -> str:
         """
         Merge multiple videos into one.
@@ -758,30 +1098,138 @@ class HunyuanVideoPackedFlow(GenerationBase):
         """
         import tempfile
         import subprocess
+        import shlex
         
-        # Create a temporary file with the list of videos
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
-            for video_path in video_paths:
-                f.write(f"file '{os.path.abspath(video_path)}'\n")
-            file_list = f.name
+        logger.info(f"Starting video merge: {len(video_paths)} videos -> {output_path}")
         
+        # 验证输入视频文件
+        for i, video_path in enumerate(video_paths):
+            if not os.path.exists(video_path):
+                raise FileNotFoundError(f"Input video {i+1} not found: {video_path}")
+            logger.info(f"Input video {i+1}: {video_path} (size: {os.path.getsize(video_path)} bytes)")
+        
+        # 创建临时文件列表
+        file_list = None
         try:
-            # Use FFmpeg to concatenate the videos
-            cmd = [
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False, encoding='utf-8') as f:
+                for video_path in video_paths:
+                    # 使用绝对路径并确保路径格式正确
+                    abs_path = os.path.abspath(video_path)
+                    # 转换为正斜杠格式（ffmpeg 在 Linux 上工作更好）
+                    abs_path = abs_path.replace('\\', '/')
+                    f.write(f"file '{abs_path}'\n")
+                file_list = f.name
+            
+            # 记录临时文件内容用于调试
+            with open(file_list, 'r', encoding='utf-8') as f:
+                file_content = f.read()
+                logger.info(f"Concat file content:\n{file_content}")
+            
+            # 首先尝试使用流复制（速度快）
+            cmd_copy = [
                 'ffmpeg',
-                '-y',  # Overwrite output file if it exists
+                '-y',  # 覆盖输出文件
+                '-f', 'concat',
+                '-safe', '0',
+                '-i', file_list,
+                '-c', 'copy',  # 直接复制流，不重新编码
+                '-avoid_negative_ts', 'make_zero',
+                '-fflags', '+genpts',
+                output_path
+            ]
+            
+            # 记录完整命令用于调试
+            cmd_str = ' '.join(shlex.quote(arg) for arg in cmd_copy)
+            logger.info(f"Trying stream copy method: {cmd_str}")
+            
+            # 执行流复制命令
+            result = subprocess.run(
+                cmd_copy, 
+                capture_output=True, 
+                text=True, 
+                check=False,
+                timeout=300
+            )
+            
+            # 如果流复制成功
+            if result.returncode == 0 and os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+                logger.info(f"Stream copy merge successful: {output_path}")
+                return output_path
+            
+            # 如果流复制失败，尝试重新编码
+            logger.warning(f"Stream copy failed, trying re-encoding. Error: {result.stderr}")
+            
+            # 删除可能存在的损坏输出文件
+            if os.path.exists(output_path):
+                os.remove(output_path)
+            
+            # 构建重新编码的 ffmpeg 命令
+            cmd_encode = [
+                'ffmpeg',
+                '-y',  # 覆盖输出文件
                 '-f', 'concat',
                 '-safe', '0',
                 '-i', file_list,
                 '-c:v', 'libx264',
                 '-crf', str(mp4_crf),
-                '-preset', 'slow',
+                '-preset', 'medium',
+                '-c:a', 'aac',  # 重新编码音频
+                '-avoid_negative_ts', 'make_zero',
+                '-fflags', '+genpts',
                 output_path
             ]
             
-            subprocess.run(cmd, check=True)
+            # 记录重新编码命令
+            cmd_str = ' '.join(shlex.quote(arg) for arg in cmd_encode)
+            logger.info(f"Trying re-encoding method: {cmd_str}")
+            
+            # 执行重新编码命令
+            result = subprocess.run(
+                cmd_encode, 
+                capture_output=True, 
+                text=True, 
+                check=False,
+                timeout=300
+            )
+            
+            # 记录 ffmpeg 输出
+            if result.stdout:
+                logger.info(f"FFmpeg stdout: {result.stdout}")
+            if result.stderr:
+                logger.info(f"FFmpeg stderr: {result.stderr}")
+            
+            # 检查执行结果
+            if result.returncode != 0:
+                error_msg = f"FFmpeg failed with exit code {result.returncode}"
+                if result.stderr:
+                    error_msg += f"\nStderr: {result.stderr}"
+                if result.stdout:
+                    error_msg += f"\nStdout: {result.stdout}"
+                logger.error(error_msg)
+                raise subprocess.CalledProcessError(result.returncode, cmd_encode, result.stdout, result.stderr)
+            
+            # 验证输出文件
+            if not os.path.exists(output_path):
+                raise FileNotFoundError(f"Output video was not created: {output_path}")
+            
+            output_size = os.path.getsize(output_path)
+            if output_size == 0:
+                raise ValueError(f"Output video is empty: {output_path}")
+            
+            logger.info(f"Re-encoding merge completed successfully: {output_path} (size: {output_size} bytes)")
             return output_path
-        
+            
+        except subprocess.TimeoutExpired:
+            logger.error("FFmpeg command timed out after 5 minutes")
+            raise Exception("Video merge timed out")
+        except Exception as e:
+            logger.error(f"Video merge failed: {str(e)}")
+            raise e
         finally:
-            # Clean up the temporary file
-            os.remove(file_list)
+            # 清理临时文件
+            if file_list and os.path.exists(file_list):
+                try:
+                    os.remove(file_list)
+                    logger.info(f"Cleaned up temporary file: {file_list}")
+                except Exception as e:
+                    logger.warning(f"Failed to clean up temporary file {file_list}: {e}")
