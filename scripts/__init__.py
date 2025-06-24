@@ -14,7 +14,7 @@ def install_deepspeed():
     Install the flash attention package
     """
     command_install_cuda_toolkit = [
-        "conda", "install", "cuda-toolkit=12.1", "-c", "conda-forge", "-c", "nvidia", "-y"
+        "conda", "install", "cuda-toolkit=12.4", "-c", "conda-forge", "-c", "nvidia", "-y"
     ] + sys.argv[1:]
     command_uninstall_deepspeed = [
         "pip", "uninstall", "deepspeed", "-y"
@@ -35,14 +35,22 @@ def install_deepspeed():
     env["DS_BUILD_CPU_ADAM"] = "1"
     env["BUILD_UTILS"] = "1"
     result_deepspeed = subprocess.run(command_install_deepspeed, check=False, env=env)
-    exit(result_deepspeed.returncode)
+    if result_deepspeed.returncode != 0:
+        exit(result_deepspeed.returncode)
+
+    # 安装 SageAttention 从 GitHub
+    command_install_sageattention = [
+        "pip", "install", "git+https://github.com/thu-ml/SageAttention.git"
+    ]
+    result_sageattention = subprocess.run(command_install_sageattention, check=False)
+    exit(result_sageattention.returncode)
 
 def install_flash_attn():
     """
     Install the flash attention package
     """
     command_install_cuda_nvcc = [
-        "conda", "install", "-c", "nvidia", "cuda-nvcc=12.1", "-y"
+        "conda", "install", "-c", "nvidia", "cuda-nvcc=12.4", "-y"
     ] + sys.argv[1:]
     command_install_flash_attn = [
         "pip", "install", "flash-attn==2.7.4.post1", "--no-build-isolation"

@@ -56,7 +56,7 @@ class HunyuanVideoPackedFlow(GenerationBase):
         feature_extractor_config: Optional[Dict[str, Any]] = None,
         image_encoder_config: Optional[Dict[str, Any]] = None,
         high_vram: bool = False,     
-        torch_compile: bool = False,
+        torch_compile: bool = True,
         fp8_scale : bool = False,  
         cfg_parallel : bool = False,    
         # below are probably not needed
@@ -184,7 +184,7 @@ class HunyuanVideoPackedFlow(GenerationBase):
             DynamicSwapInstaller.install_model(self.cond_stage_model, device=device)
             self.first_stage_model.enable_slicing()
             self.first_stage_model.enable_tiling()
-
+            
         try:
             # Clean GPU
             if not self.high_vram:
@@ -595,22 +595,30 @@ class HunyuanVideoPackedFlow(GenerationBase):
                         denoiser_ckpt_path: Optional[Union[str, Path]] = None,
                         lora_ckpt_path: Optional[Union[str, Path]] = None,
                         ignore_missing_ckpts: bool = False):
+
         pass
     
-    def enable_vram_management(self):
+    def enable_vram_management(self, device = 'cuda'):
         self.first_stage_model.to(dtype=torch.float16)
         self.image_encoder.to(dtype=torch.float16)
         self.cond_stage_model.to(dtype=torch.float16)
         self.cond_stage_2_model.to(dtype=torch.float16)
 
-        self.cond_stage_model.cuda()
-        self.cond_stage_2_model.cuda()
-        self.image_encoder.cuda()
-        self.first_stage_model.cuda()
-        self.denoiser.cuda()
-        if self.torch_compile:
-            torch._dynamo.config.cache_size_limit = 64
-            self.denoiser = torch.compile(self.denoiser, mode="max-autotune-no-cudagraphs")
+        if not self.high_vram:
+            DynamicSwapInstaller.install_model(self.denoiser, device=device)
+            DynamicSwapInstaller.install_model(self.cond_stage_model, device=device)
+            self.first_stage_model.enable_slicing()
+            self.first_stage_model.enable_tiling()
+        else:
+            self.cond_stage_model.cuda()
+            self.cond_stage_2_model.cuda()
+            self.image_encoder.cuda()
+            self.first_stage_model.cuda()
+            self.denoiser.cuda()
+
+        # if self.torch_compile:
+        #     torch._dynamo.config.cache_size_limit = 64
+        #     self.denoiser = torch.compile(self.denoiser, mode="max-autotune-no-cudagraphs")
         
     
     def training_step(self, batch, batch_idx):
