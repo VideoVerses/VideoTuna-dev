@@ -16,6 +16,7 @@ from videotuna.base.generation_base import GenerationBase
 from videotuna.utils.common_utils import instantiate_from_config
 from videotuna.utils.args_utils import VideoMode
 import tempfile
+import uuid
 
 # framepack specific
 from videotuna.models.framepack.hunyuan import encode_prompt_conds, vae_decode, vae_encode
@@ -1079,7 +1080,7 @@ class HunyuanVideoPackedFlow(GenerationBase):
             
             # 合并两段视频
             logger.info("Merging transition segments...")
-            final_video_path = os.path.join(output_dir, f"single_transition_{uuid.uuid4().hex[:8]}.mp4")
+            final_video_path = os.path.join(output_dir, f"single_transition_{uuid.uuid4().hex}.mp4")
             merged_path = self.merge_videos([first_transition_path, second_transition_path], final_video_path, args.get("mp4_crf", 16))
             
             if not merged_path or not os.path.exists(merged_path):
