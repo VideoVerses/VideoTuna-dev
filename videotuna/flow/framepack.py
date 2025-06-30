@@ -56,8 +56,8 @@ class HunyuanVideoPackedFlow(GenerationBase):
         lora_config: Optional[Dict[str, Any]] = None,
         feature_extractor_config: Optional[Dict[str, Any]] = None,
         image_encoder_config: Optional[Dict[str, Any]] = None,
-        high_vram: bool = False,     
-        torch_compile: bool = True,
+        high_vram: bool = True,     
+        torch_compile: bool = False,
         fp8_scale : bool = False,  
         cfg_parallel : bool = False,    
         # below are probably not needed
@@ -111,7 +111,7 @@ class HunyuanVideoPackedFlow(GenerationBase):
         self.ckpt_path = ckpt_path
         self.seed = seed
         self.offload_model = offload_model
-        self.high_vram = False
+        self.high_vram = high_vram
         self.torch_compile = torch_compile
         self.fp8_scale = fp8_scale
         self.cfg_parallel = cfg_parallel
@@ -136,9 +136,21 @@ class HunyuanVideoPackedFlow(GenerationBase):
         args.num_inference_steps = steps
         args.warmup = False
         logger.info("warmup finished")
+        
+    def _batch_inference(self, args: DictConfig):
+        prompt_list, image_path_list = self.load_inference_inputs(args.prompt_dir, args.mode)
+        for i, (prompt, i2v_image_path) in enumerate(zip(prompt_list, image_path_list)):
+            args.prompt = prompt
+            args.input_image_path = i2v_image_path
+            args.prompt_dir = None
+            self.inference(args)
 
     @torch.no_grad()
     def inference(self, args: DictConfig): 
+        # 如果是批量生成转场视频
+        if hasattr(args, 'prompt_dir') and args.prompt_dir:
+            return self._batch_inference(args)
+        
         # 如果是批量生成转场视频
         if hasattr(args, 'batch_transition') and args.batch_transition:
             return self._batch_transition_inference(args)
